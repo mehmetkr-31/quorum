@@ -1,4 +1,4 @@
-<![CDATA[<div align="center">
+<div align="center">
 
 # 🏛️ Quorum
 
@@ -351,4 +351,3 @@ pnpm dev
 ## License
 
 MIT
-]]>
