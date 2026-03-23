@@ -1,0 +1,43 @@
+# dependencies
+node_modules/
+.pnpm-store
+
+# testing
+coverage
+
+# next.js / vinxi / tanstack start
+.next/
+out/
+build
+dist
+.output
+.vinxi
+routeTree.gen.ts
+
+# cache
+.turbo
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# local env files
+.env
+.env*.local
+.env.development
+.env.production
+!.env.example
+
+# database
+*.db
+*.db-journal
+
+# aptos
+.aptos/
+.tmp

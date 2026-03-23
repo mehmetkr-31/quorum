@@ -1,0 +1,48 @@
+import { publicProcedure } from "../index";
+import { z } from "zod";
+import { receipts, members } from "@quorum/db";
+import { eq } from "drizzle-orm";
+
+export const revenueRouter = {
+  anchorReceipt: publicProcedure
+    .input(z.object({
+      datasetId: z.string(),
+      readerAddress: z.string(),
+      shelbyReceiptHash: z.string(),
+      aptosTxHash: z.string(),
+      amount: z.number(),
+    }))
+    .handler(async ({ input, context: ctx }) => {
+      const id = crypto.randomUUID();
+      await ctx.db.insert(receipts).values({
+        id,
+        datasetId: input.datasetId,
+        readerAddress: input.readerAddress,
+        shelbyReceiptHash: input.shelbyReceiptHash,
+        aptosTxHash: input.aptosTxHash,
+        amount: input.amount,
+        createdAt: new Date(),
+      });
+      return { id };
+    }),
+
+  getEarnings: publicProcedure
+    .input(z.object({ contributorAddress: z.string() }))
+    .handler(async ({ input, context: ctx }) => {
+      const rows = await ctx.db.select().from(members).where(eq(members.address, input.contributorAddress)).limit(1);
+      if (rows.length === 0) return { approvedContributions: 0, totalWeight: 0 };
+      return {
+        approvedContributions: rows[0].approvedContributions,
+        totalWeight: rows[0].totalContributions,
+      };
+    }),
+
+  listReceipts: publicProcedure
+    .input(z.object({
+      distributed: z.boolean().optional(),
+      limit: z.number().default(50).optional(),
+    }).optional())
+    .handler(async ({ input, context: ctx }) => {
+      return ctx.db.select().from(receipts).limit(input?.limit ?? 50);
+    }),
+};

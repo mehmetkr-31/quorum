@@ -1,12 +1,12 @@
-import { createClient } from "@libsql/client"
-import { drizzle } from "drizzle-orm/libsql"
-import * as schema from "./schema"
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
+import * as schema from "./schema/index";
 
-export * from "./schema"
+export * from "./schema/index";
 
 export function createDb(url: string, authToken?: string) {
-  const client = createClient({ url, authToken })
-  return drizzle(client, { schema })
+  const client = createClient({ url, authToken });
+  return drizzle(client, { schema });
 }
 
-export type Db = ReturnType<typeof createDb>
+export type Db = ReturnType<typeof createDb>;

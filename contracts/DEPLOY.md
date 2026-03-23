@@ -1,69 +1,46 @@
-# Contract Deploy Guide — Shelbynet
+# Contract Deploy — Status
 
-## Account (generated)
+## ✅ Deployed on Aptos Devnet (2026-03-23)
 
-```
-Address : 0x98bf6a33b5db4dfb05c4b18992a4383cd340630e366f5ebb870a03d45e44a573
-Profile : contracts/.aptos/config.yaml
-```
+| Contract | Tx Hash |
+|---|---|
+| Publish | `0x391e15bcf0a9856b41ce84c2072d1f182dcd6bf7a39b8afc442a5c97d6f31125` |
+| dao_governance::initialize | `0xd88143b16baf9508c580697a9a95b2bbff48c92233461e2c2a354888f7e0d582` |
+| revenue_splitter::initialize | `0x673596fe924fcfc37053b28a08bcaf07f78b44f77c7d191b15105cb0ccc22448` |
 
-## Steps
+**Contract Address:** `0x928d7052d85f63b206fab9f837b2c3302813e4798931ff0d78a420611dc20d4e`
 
-### 1. Fund the account
+Explorer: https://explorer.aptoslabs.com/account/0x928d7052d85f63b206fab9f837b2c3302813e4798931ff0d78a420611dc20d4e?network=devnet
 
-The CLI faucet has timing issues. Use the web faucet directly:
+---
 
-```
-https://faucet.shelbynet.shelby.xyz
-```
+## ⏳ Shelbynet — Pending
 
-Fund address: `0x98bf6a33b5db4dfb05c4b18992a4383cd340630e366f5ebb870a03d45e44a573`
+Shelbynet (chain_id=113) is running but has **0 user transactions** on-chain.
+The faucet accepts requests and returns tx hashes, but no user transactions are being included in blocks.
+This is a known early-stage issue — re-deploy to Shelbynet once user transactions are enabled.
 
-Verify:
-```bash
-aptos account balance --profile default
-```
-
-### 2. Compile
+### Shelbynet deploy commands (when ready)
 
 ```bash
-cd contracts
-aptos move compile \
-  --named-addresses quorum=0x98bf6a33b5db4dfb05c4b18992a4383cd340630e366f5ebb870a03d45e44a573
-```
+# Fund account
+curl -X POST "https://faucet.shelbynet.shelby.xyz/mint?amount=200000000&address=0x928d7052d85f63b206fab9f837b2c3302813e4798931ff0d78a420611dc20d4e"
 
-### 3. Publish
-
-```bash
+# Publish
 aptos move publish \
-  --named-addresses quorum=0x98bf6a33b5db4dfb05c4b18992a4383cd340630e366f5ebb870a03d45e44a573 \
+  --named-addresses quorum=0x928d7052d85f63b206fab9f837b2c3302813e4798931ff0d78a420611dc20d4e \
   --url https://api.shelbynet.shelby.xyz/v1 \
+  --gas-unit-price 100 \
   --max-gas 200000 \
   --assume-yes
-```
 
-### 4. Initialize contracts
-
-```bash
-# Initialize DAO governance
+# Initialize
 aptos move run \
-  --function-id 0x98bf6a33b5db4dfb05c4b18992a4383cd340630e366f5ebb870a03d45e44a573::dao_governance::initialize \
-  --url https://api.shelbynet.shelby.xyz/v1 \
-  --assume-yes
+  --function-id 0x928d7052d85f63b206fab9f837b2c3302813e4798931ff0d78a420611dc20d4e::dao_governance::initialize \
+  --url https://api.shelbynet.shelby.xyz/v1 --assume-yes
 
-# Initialize revenue splitter (treasury = your address)
 aptos move run \
-  --function-id 0x98bf6a33b5db4dfb05c4b18992a4383cd340630e366f5ebb870a03d45e44a573::revenue_splitter::initialize \
-  --args "address:0x98bf6a33b5db4dfb05c4b18992a4383cd340630e366f5ebb870a03d45e44a573" \
-  --url https://api.shelbynet.shelby.xyz/v1 \
-  --assume-yes
-```
-
-### 5. Update .env
-
-```env
-APTOS_CONTRACT_ADDRESS=0x98bf6a33b5db4dfb05c4b18992a4383cd340630e366f5ebb870a03d45e44a573
-APTOS_NODE_URL=https://api.shelbynet.shelby.xyz/v1
-APTOS_NETWORK=custom
-APTOS_PRIVATE_KEY=0xe417a270977f86df2e51fe8b2aaa4d8a4e1b585b3af43d9cee5e18a5beec511c
+  --function-id 0x928d7052d85f63b206fab9f837b2c3302813e4798931ff0d78a420611dc20d4e::revenue_splitter::initialize \
+  --args "address:0x928d7052d85f63b206fab9f837b2c3302813e4798931ff0d78a420611dc20d4e" \
+  --url https://api.shelbynet.shelby.xyz/v1 --assume-yes
 ```

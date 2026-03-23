@@ -4,12 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/client.ts"
   },
-  "scripts": {
-    "typecheck": "tsc --noEmit"
-  },
-  "devDependencies": {
-    "typescript": "^5.6.3"
+  "dependencies": {
+    "@quorum/env": "workspace:*"
   }
 }

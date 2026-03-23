@@ -1,0 +1,20 @@
+{
+  "name": "@quorum/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./context": "./src/context.ts",
+    "./routers/index": "./src/routers/index.ts"
+  },
+  "dependencies": {
+    "@orpc/server": "catalog:",
+    "@quorum/db": "workspace:*",
+    "@quorum/aptos": "workspace:*",
+    "@quorum/shelby": "workspace:*",
+    "@quorum/env": "workspace:*",
+    "drizzle-orm": "^0.36.4",
+    "zod": "catalog:"
+  }
+}
