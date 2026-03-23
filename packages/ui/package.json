@@ -7,11 +7,15 @@
     "./globals.css": "./src/styles/globals.css",
     "./utils": "./src/lib/utils.ts"
   },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.0.0"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
     "tailwindcss": "catalog:"
   }
 }

@@ -1,3 +1,4 @@
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { orpc } from "../../utils/orpc";
@@ -12,10 +13,12 @@ const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
 
 function VotePage() {
   const { connected, account, signAndSubmitTransaction } = useWallet();
-  const { data: pending, isLoading, refetch } = orpc.contribution.list.useQuery({
-    input: { status: "pending" },
-  });
-  const castMutation = orpc.vote.cast.useMutation();
+  const { data: pending, isLoading, refetch } = useQuery(
+    orpc.contribution.list.queryOptions({
+      input: { status: "pending" },
+    }),
+  );
+  const castMutation = useMutation(orpc.vote.cast.mutationOptions());
 
   async function handleVote(contributionId: string, decision: "approve" | "reject" | "improve") {
     if (!connected || !account) return;

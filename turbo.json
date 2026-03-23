@@ -9,7 +9,7 @@
       "cache": false,
       "persistent": true
     },
-    "check-types": {
+    "typecheck": {
       "dependsOn": ["^build"]
     }
   }

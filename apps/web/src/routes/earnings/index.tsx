@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { orpc } from "../../utils/orpc";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
@@ -8,8 +9,10 @@ export const Route = createFileRoute("/earnings/")({
 
 function EarningsPage() {
   const { connected, account } = useWallet();
-  const { data: earnings } = orpc.revenue.getEarnings.useQuery({
-    input: { contributorAddress: account?.address ?? "" },
+  const { data: earnings } = useQuery({
+    ...orpc.revenue.getEarnings.queryOptions({
+      input: { contributorAddress: account?.address ?? "" },
+    }),
     enabled: !!connected && !!account,
   });
 

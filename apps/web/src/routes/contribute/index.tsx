@@ -1,3 +1,4 @@
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef } from "react";
 import { orpc } from "../../utils/orpc";
@@ -20,9 +21,9 @@ function ContributePage() {
   const [status, setStatus] = useState<"idle" | "uploading" | "signing" | "done" | "error">("idle");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const { data: datasets } = orpc.dataset.list.useQuery();
-  const submitMutation = orpc.contribution.submit.useMutation();
-  const confirmMutation = orpc.contribution.confirmOnChain.useMutation();
+  const { data: datasets } = useQuery(orpc.dataset.list.queryOptions());
+  const submitMutation = useMutation(orpc.contribution.submit.mutationOptions());
+  const confirmMutation = useMutation(orpc.contribution.confirmOnChain.mutationOptions());
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

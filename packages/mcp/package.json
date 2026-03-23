@@ -5,5 +5,8 @@
   "type": "module",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
   }
 }

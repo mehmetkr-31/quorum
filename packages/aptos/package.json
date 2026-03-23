@@ -6,8 +6,14 @@
   "exports": {
     ".": "./src/client.ts"
   },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "@aptos-labs/ts-sdk": "^1.33.1",
     "@quorum/env": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
   }
 }

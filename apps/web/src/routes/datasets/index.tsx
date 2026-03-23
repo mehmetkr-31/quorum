@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { orpc } from "../../utils/orpc";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
@@ -7,7 +8,7 @@ export const Route = createFileRoute("/datasets/")({
 });
 
 function DatasetsPage() {
-  const { data: datasets, isLoading } = orpc.dataset.list.useQuery();
+  const { data: datasets, isLoading } = useQuery(orpc.dataset.list.queryOptions());
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-16">

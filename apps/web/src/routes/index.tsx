@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { orpc } from "../utils/orpc";
 
@@ -6,10 +7,12 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
-  const { data: datasets, isLoading } = orpc.dataset.list.useQuery({
-    input: { limit: 6 },
-  });
-  const { data: stats } = orpc.governance.getStats.useQuery();
+  const { data: datasets, isLoading } = useQuery(
+    orpc.dataset.list.queryOptions({
+      input: { limit: 6 },
+    }),
+  );
+  const { data: stats } = useQuery(orpc.governance.getStats.queryOptions());
 
   return (
     <div>

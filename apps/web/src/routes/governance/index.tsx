@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { orpc } from "../../utils/orpc";
 
@@ -6,8 +7,8 @@ export const Route = createFileRoute("/governance/")({
 });
 
 function GovernancePage() {
-  const { data: stats } = orpc.governance.getStats.useQuery();
-  const { data: members } = orpc.governance.listMembers.useQuery();
+  const { data: stats } = useQuery(orpc.governance.getStats.queryOptions());
+  const { data: members } = useQuery(orpc.governance.listMembers.queryOptions());
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-16">
