@@ -12,7 +12,7 @@ import { toast } from "sonner";
 
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
-    onError: (error, query) => {
+    onError: (error) => {
       toast.error(`Error: ${error.message}`);
     },
   }),

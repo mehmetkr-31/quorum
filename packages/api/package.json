@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@orpc/server": "catalog:",
+    "@orpc/openapi": "catalog:",
+    "@orpc/zod": "catalog:",
     "@quorum/db": "workspace:*",
     "@quorum/aptos": "workspace:*",
     "@quorum/shelby": "workspace:*",

@@ -6,18 +6,15 @@ import path from "node:path";
 
 export default defineConfig({
   plugins: [
-    tsconfigPaths({
-      projects: [
-        path.resolve(__dirname, "tsconfig.json"),
-        path.resolve(__dirname, "../../packages/api/tsconfig.json"),
-        path.resolve(__dirname, "../../packages/ui/tsconfig.json"),
-        path.resolve(__dirname, "../../packages/db/tsconfig.json"),
-        path.resolve(__dirname, "../../packages/env/tsconfig.json"),
-      ],
-    }),
+    tsconfigPaths(),
     tailwindcss(),
     tanstackStart(),
   ],
+  resolve: {
+    alias: {
+      "@orpc/zod": path.resolve(__dirname, "../../node_modules/.pnpm/@orpc+zod@1.13.9_@opentelemetry+api@1.9.0_@orpc+contract@1.13.9_@opentelemetry+api@1.9.0__@or_6u4mcio4dpoxr4d5kj2mmdpjti/node_modules/@orpc/zod/dist/index.mjs"),
+    },
+  },
   server: {
     port: 3001,
   },
