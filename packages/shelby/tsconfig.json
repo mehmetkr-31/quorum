@@ -1,11 +1,3 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "strict": true,
-    "noEmit": true
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules"]
+  "extends": "@quorum/config/tsconfig.base.json"
 }
