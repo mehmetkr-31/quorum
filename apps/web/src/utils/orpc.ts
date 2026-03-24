@@ -1,28 +1,28 @@
-import { createContext } from "@quorum/api/context";
-import { appRouter } from "@quorum/api/routers/index";
-import { createORPCClient } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
-import { createRouterClient } from "@orpc/server";
-import type { RouterClient } from "@orpc/server";
-import { createTanstackQueryUtils } from "@orpc/tanstack-query";
-import { QueryCache, QueryClient } from "@tanstack/react-query";
-import { createIsomorphicFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
-import { toast } from "sonner";
+import { createORPCClient } from "@orpc/client"
+import { RPCLink } from "@orpc/client/fetch"
+import type { RouterClient } from "@orpc/server"
+import { createRouterClient } from "@orpc/server"
+import { createTanstackQueryUtils } from "@orpc/tanstack-query"
+import { createContext } from "@quorum/api/context"
+import { appRouter } from "@quorum/api/routers/index"
+import { QueryCache, QueryClient } from "@tanstack/react-query"
+import { createIsomorphicFn } from "@tanstack/react-start"
+import { getRequest } from "@tanstack/react-start/server"
+import { toast } from "sonner"
 
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error) => {
-      toast.error(`Error: ${error.message}`);
+      toast.error(`Error: ${error.message}`)
     },
   }),
-});
+})
 
 const getORPCClient = createIsomorphicFn()
   .server(() =>
     createRouterClient(appRouter, {
       context: async () => {
-        return createContext({ req: getRequest() });
+        return createContext({ req: getRequest() })
       },
     }),
   )
@@ -33,13 +33,13 @@ const getORPCClient = createIsomorphicFn()
         return fetch(url, {
           ...options,
           credentials: "include",
-        });
+        })
       },
-    });
+    })
 
-    return createORPCClient(link);
-  });
+    return createORPCClient(link)
+  })
 
-export const client: RouterClient<typeof appRouter> = getORPCClient();
+export const client: RouterClient<typeof appRouter> = getORPCClient()
 
-export const orpc = createTanstackQueryUtils(client);
+export const orpc = createTanstackQueryUtils(client)

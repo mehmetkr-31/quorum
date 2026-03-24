@@ -1,14 +1,14 @@
-import type { QueryClient } from "@tanstack/react-query";
-import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
-import { Toaster } from "sonner";
-import { WalletProvider } from "@/components/WalletButton";
-import Header from "@/components/header";
-import type { orpc } from "@/utils/orpc";
-import appCss from "../index.css?url";
+import type { QueryClient } from "@tanstack/react-query"
+import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from "@tanstack/react-router"
+import { Toaster } from "sonner"
+import Header from "@/components/header"
+import { WalletProvider } from "@/components/WalletButton"
+import type { orpc } from "@/utils/orpc"
+import appCss from "../index.css?url"
 
 export interface RouterAppContext {
-  orpc: typeof orpc;
-  queryClient: QueryClient;
+  orpc: typeof orpc
+  queryClient: QueryClient
 }
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
@@ -33,7 +33,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
     ],
   }),
   component: RootDocument,
-});
+})
 
 function RootDocument() {
   return (
@@ -54,9 +54,7 @@ function RootDocument() {
                   <span className="text-xl">🏛️</span>
                   <span className="text-lg font-bold tracking-tight">QUORUM</span>
                 </div>
-                <p className="text-neutral-500 text-sm">
-                  Powered by Aptos & Shelby Protocol
-                </p>
+                <p className="text-neutral-500 text-sm">Powered by Aptos & Shelby Protocol</p>
               </div>
             </footer>
           </div>
@@ -65,5 +63,5 @@ function RootDocument() {
         <Scripts />
       </body>
     </html>
-  );
+  )
 }

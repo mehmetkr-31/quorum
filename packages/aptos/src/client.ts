@@ -1,10 +1,10 @@
 import {
   Account,
   Aptos,
+  type Account as AptosAccount,
   AptosConfig,
   Ed25519PrivateKey,
   Network,
-  type Account as AptosAccount,
 } from "@aptos-labs/ts-sdk"
 
 export { Network }
@@ -114,18 +114,12 @@ export class QuorumAptosClient {
    * Anyone can call this. Move signature:
    * finalize_contribution(caller, contract_addr, contribution_id)
    */
-  async finalizeContribution(
-    caller: AptosAccount,
-    contributionId: string,
-  ): Promise<string> {
+  async finalizeContribution(caller: AptosAccount, contributionId: string): Promise<string> {
     const txn = await this.aptos.transaction.build.simple({
       sender: caller.accountAddress,
       data: {
         function: `${this.contractAddress}::dao_governance::finalize_contribution`,
-        functionArguments: [
-          this.contractAddress,
-          Array.from(Buffer.from(contributionId, "utf8")),
-        ],
+        functionArguments: [this.contractAddress, Array.from(Buffer.from(contributionId, "utf8"))],
       },
     })
     const result = await this.aptos.signAndSubmitTransaction({ signer: caller, transaction: txn })

@@ -1,20 +1,20 @@
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { orpc } from "../../utils/orpc";
-import { useWallet } from "@aptos-labs/wallet-adapter-react";
+import { useWallet } from "@aptos-labs/wallet-adapter-react"
+import { useQuery } from "@tanstack/react-query"
+import { createFileRoute } from "@tanstack/react-router"
+import { orpc } from "../../utils/orpc"
 
 export const Route = createFileRoute("/earnings/")({
   component: EarningsPage,
-});
+})
 
 function EarningsPage() {
-  const { connected, account } = useWallet();
+  const { connected, account } = useWallet()
   const { data: earnings } = useQuery({
     ...orpc.revenue.getEarnings.queryOptions({
-      input: { contributorAddress: account?.address ?? "" },
+      input: { contributorAddress: account?.address.toString() ?? "" },
     }),
     enabled: !!connected && !!account,
-  });
+  })
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-16">
@@ -26,15 +26,19 @@ function EarningsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="p-8 rounded-3xl bg-neutral-900 border border-neutral-800">
-            <p className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-2">Approved Weight</p>
+            <p className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-2">
+              Approved Weight
+            </p>
             <p className="text-5xl font-bold">{earnings?.totalWeight ?? 0}</p>
           </div>
           <div className="p-8 rounded-3xl bg-neutral-900 border border-neutral-800">
-            <p className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-2">Approved Submissions</p>
+            <p className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-2">
+              Approved Submissions
+            </p>
             <p className="text-5xl font-bold">{earnings?.approvedContributions ?? 0}</p>
           </div>
         </div>
       )}
     </div>
-  );
+  )
 }

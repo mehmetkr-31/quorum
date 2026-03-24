@@ -1,5 +1,5 @@
-import { Link } from "@tanstack/react-router";
-import { WalletButton } from "../components/WalletButton";
+import { Link } from "@tanstack/react-router"
+import { WalletButton } from "../components/WalletButton"
 
 export default function Header() {
   return (
@@ -15,7 +15,10 @@ export default function Header() {
           <Link to="/" className="hover:text-white transition-colors [&.active]:text-white">
             Home
           </Link>
-          <Link to="/contribute" className="hover:text-white transition-colors [&.active]:text-white">
+          <Link
+            to="/contribute"
+            className="hover:text-white transition-colors [&.active]:text-white"
+          >
             Contribute
           </Link>
           <Link to="/vote" className="hover:text-white transition-colors [&.active]:text-white">
@@ -27,12 +30,15 @@ export default function Header() {
           <Link to="/earnings" className="hover:text-white transition-colors [&.active]:text-white">
             Earnings
           </Link>
-          <Link to="/governance" className="hover:text-white transition-colors [&.active]:text-white">
+          <Link
+            to="/governance"
+            className="hover:text-white transition-colors [&.active]:text-white"
+          >
             Governance
           </Link>
         </div>
       </div>
       <WalletButton />
     </nav>
-  );
+  )
 }

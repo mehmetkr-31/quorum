@@ -30,7 +30,10 @@ export class ShelbyClient {
     return { Authorization: `Bearer ${this.apiKey}` }
   }
 
-  async upload(data: Uint8Array | Buffer, contentType = "application/octet-stream"): Promise<UploadResult> {
+  async upload(
+    data: Uint8Array | Buffer,
+    contentType = "application/octet-stream",
+  ): Promise<UploadResult> {
     const response = await fetch(`${this.baseUrl}/blobs`, {
       method: "POST",
       headers: {

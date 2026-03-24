@@ -1,54 +1,51 @@
-import { createDb, type Db } from "@quorum/db";
-import { QuorumAptosClient, Network } from "@quorum/aptos";
-import { ShelbyClient } from "@quorum/shelby";
-import { serverEnv } from "@quorum/env/server";
+import { Network, QuorumAptosClient } from "@quorum/aptos"
+import { createDb, type Db } from "@quorum/db"
+import { env } from "@quorum/env/server"
+import { ShelbyClient } from "@quorum/shelby"
 
-let _db: Db | null = null;
-let _aptosClient: QuorumAptosClient | null = null;
-let _shelbyClient: ShelbyClient | null = null;
+let _db: Db | null = null
+let _aptosClient: QuorumAptosClient | null = null
+let _shelbyClient: ShelbyClient | null = null
 
 function getDb(): Db {
   if (!_db) {
-    _db = createDb(
-      serverEnv.DATABASE_URL,
-      serverEnv.DATABASE_AUTH_TOKEN,
-    );
+    _db = createDb(env.DATABASE_URL, env.DATABASE_AUTH_TOKEN)
   }
-  return _db;
+  return _db
 }
 
 function getAptosClient(): QuorumAptosClient {
   if (!_aptosClient) {
     _aptosClient = new QuorumAptosClient({
       network: Network.TESTNET,
-      nodeUrl: serverEnv.APTOS_NODE_URL,
-      contractAddress: serverEnv.QUORUM_CONTRACT_ADDRESS,
-      serverPrivateKey: serverEnv.APTOS_PRIVATE_KEY,
-    });
+      nodeUrl: env.APTOS_NODE_URL,
+      contractAddress: env.QUORUM_CONTRACT_ADDRESS,
+      serverPrivateKey: env.APTOS_PRIVATE_KEY,
+    })
   }
-  return _aptosClient;
+  return _aptosClient
 }
 
 function getShelbyClient(): ShelbyClient {
   if (!_shelbyClient) {
     _shelbyClient = new ShelbyClient({
-      baseUrl: serverEnv.SHELBY_BASE_URL,
-      apiKey: serverEnv.SHELBY_API_KEY ?? "",
-    });
+      baseUrl: env.SHELBY_BASE_URL,
+      apiKey: env.SHELBY_API_KEY ?? "",
+    })
   }
-  return _shelbyClient;
+  return _shelbyClient
 }
 
 export interface Context {
-  db: Db;
-  aptosClient: QuorumAptosClient;
-  shelbyClient: ShelbyClient;
+  db: Db
+  aptosClient: QuorumAptosClient
+  shelbyClient: ShelbyClient
 }
 
-export async function createContext({ req }: { req: Request }): Promise<Context> {
+export async function createContext({ req: _req }: { req: Request }): Promise<Context> {
   return {
     db: getDb(),
     aptosClient: getAptosClient(),
     shelbyClient: getShelbyClient(),
-  };
+  }
 }

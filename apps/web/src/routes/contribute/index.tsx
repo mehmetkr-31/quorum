@@ -1,51 +1,47 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useRef } from "react";
-import { orpc } from "../../utils/orpc";
-import { useWallet } from "@aptos-labs/wallet-adapter-react";
-import { toast } from "sonner";
-import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
+import { useWallet } from "@aptos-labs/wallet-adapter-react"
+import { useMutation, useQuery } from "@tanstack/react-query"
+import { createFileRoute } from "@tanstack/react-router"
+import { useRef, useState } from "react"
+import { toast } from "sonner"
+import { orpc } from "../../utils/orpc"
 
 export const Route = createFileRoute("/contribute/")({
   component: ContributePage,
-});
+})
 
-const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
-const NODE_URL = import.meta.env.VITE_APTOS_NODE_URL;
+const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS
 
 function ContributePage() {
-  const { connected, account, signAndSubmitTransaction } = useWallet();
-  const [selectedDatasetId, setSelectedDatasetId] = useState("");
-  const [shelbyAccount, setShelbyAccount] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [status, setStatus] = useState<"idle" | "uploading" | "signing" | "done" | "error">("idle");
-  const fileRef = useRef<HTMLInputElement>(null);
+  const { connected, account, signAndSubmitTransaction } = useWallet()
+  const [selectedDatasetId, setSelectedDatasetId] = useState("")
+  const [shelbyAccount, setShelbyAccount] = useState("")
+  const [file, setFile] = useState<File | null>(null)
+  const [status, setStatus] = useState<"idle" | "uploading" | "signing" | "done" | "error">("idle")
+  const fileRef = useRef<HTMLInputElement>(null)
 
-  const { data: datasets } = useQuery(orpc.dataset.list.queryOptions());
-  const submitMutation = useMutation(orpc.contribution.submit.mutationOptions());
-  const confirmMutation = useMutation(orpc.contribution.confirmOnChain.mutationOptions());
+  const { data: datasets } = useQuery(orpc.dataset.list.queryOptions())
+  const submitMutation = useMutation(orpc.contribution.submit.mutationOptions())
+  const confirmMutation = useMutation(orpc.contribution.confirmOnChain.mutationOptions())
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!connected || !account || !file || !selectedDatasetId || !shelbyAccount) return;
+    e.preventDefault()
+    if (!connected || !account || !file || !selectedDatasetId || !shelbyAccount) return
 
-    setStatus("uploading");
+    setStatus("uploading")
     try {
-      const buffer = await file.arrayBuffer();
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+      const buffer = await file.arrayBuffer()
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
 
       const res = await submitMutation.mutateAsync({
-        input: {
-          datasetId: selectedDatasetId,
-          contributorAddress: account.address,
-          shelbyAccount,
-          data: base64,
-          contentType: file.type || "application/octet-stream",
-        },
-      });
+        datasetId: selectedDatasetId,
+        contributorAddress: account.address.toString(),
+        shelbyAccount,
+        data: base64,
+        contentType: file.type || "application/octet-stream",
+      })
 
-      setStatus("signing");
-      
+      setStatus("signing")
+
       const payload = {
         function: `${CONTRACT_ADDRESS}::dao_governance::submit_contribution`,
         functionArguments: [
@@ -54,24 +50,27 @@ function ContributePage() {
           Array.from(new TextEncoder().encode(selectedDatasetId)),
           Array.from(new TextEncoder().encode(res.shelbyAccount)),
           Array.from(new TextEncoder().encode(res.shelbyBlobName)),
-          Array.from(new Uint8Array(res.dataHash.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)))),
+          Array.from(
+            new Uint8Array((res.dataHash.match(/.{1,2}/g) ?? []).map((byte) => parseInt(byte, 16))),
+          ),
         ],
-      };
+      }
 
       const result = await signAndSubmitTransaction({
         data: payload as any,
-      });
+      })
 
       await confirmMutation.mutateAsync({
-        input: { id: res.id, aptosTxHash: result.hash },
-      });
+        id: res.id,
+        aptosTxHash: result.hash,
+      })
 
-      setStatus("done");
-      toast.success("Contribution submitted successfully!");
+      setStatus("done")
+      toast.success("Contribution submitted successfully!")
     } catch (e: any) {
-      console.error(e);
-      setStatus("error");
-      toast.error(e.message || "Contribution failed");
+      console.error(e)
+      setStatus("error")
+      toast.error(e.message || "Contribution failed")
     }
   }
 
@@ -84,8 +83,11 @@ function ContributePage() {
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="space-y-2">
-          <label className="block text-sm font-semibold text-neutral-300">Dataset</label>
+          <label htmlFor="datasetId" className="block text-sm font-semibold text-neutral-300">
+            Dataset
+          </label>
           <select
+            id="datasetId"
             value={selectedDatasetId}
             onChange={(e) => setSelectedDatasetId(e.target.value)}
             className="w-full rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-3 outline-none"
@@ -93,14 +95,19 @@ function ContributePage() {
           >
             <option value="">Select a dataset...</option>
             {datasets?.map((ds) => (
-              <option key={ds.id} value={ds.id}>{ds.name}</option>
+              <option key={ds.id} value={ds.id}>
+                {ds.name}
+              </option>
             ))}
           </select>
         </div>
 
         <div className="space-y-2">
-          <label className="block text-sm font-semibold text-neutral-300">Shelby Account</label>
+          <label htmlFor="shelbyAccount" className="block text-sm font-semibold text-neutral-300">
+            Shelby Account
+          </label>
           <input
+            id="shelbyAccount"
             type="text"
             value={shelbyAccount}
             onChange={(e) => setShelbyAccount(e.target.value)}
@@ -110,9 +117,10 @@ function ContributePage() {
           />
         </div>
 
-        <div
+        <button
+          type="button"
           onClick={() => fileRef.current?.click()}
-          className="cursor-pointer rounded-2xl border-2 border-dashed border-neutral-800 p-12 text-center hover:border-neutral-600 transition-all"
+          className="w-full cursor-pointer rounded-2xl border-2 border-dashed border-neutral-800 p-12 text-center hover:border-neutral-600 transition-all"
         >
           {file ? file.name : "Click to select file"}
           <input
@@ -121,16 +129,20 @@ function ContributePage() {
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             className="hidden"
           />
-        </div>
+        </button>
 
         <button
           type="submit"
           disabled={status === "uploading" || status === "signing" || !connected}
           className="w-full rounded-xl bg-indigo-600 py-4 font-bold disabled:opacity-50"
         >
-          {status === "uploading" ? "Uploading..." : status === "signing" ? "Signing..." : "Submit to DAO"}
+          {status === "uploading"
+            ? "Uploading..."
+            : status === "signing"
+              ? "Signing..."
+              : "Submit to DAO"}
         </button>
       </form>
     </div>
-  );
+  )
 }

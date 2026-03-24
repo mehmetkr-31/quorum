@@ -11,7 +11,7 @@ catalog:
   react-dom: ^19.2.3
   sonner: ^2.0.5
   tailwindcss: ^4.1.18
-  "@libsql/client": 0.15.15
+  "@libsql/client": 0.17.2
   libsql: 0.5.22
   "@orpc/server": ^1.13.9
   "@orpc/client": ^1.13.9

@@ -1,50 +1,55 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { orpc } from "../../utils/orpc";
-import { useWallet } from "@aptos-labs/wallet-adapter-react";
-import { toast } from "sonner";
+import { useWallet } from "@aptos-labs/wallet-adapter-react"
+import { useMutation, useQuery } from "@tanstack/react-query"
+import { createFileRoute } from "@tanstack/react-router"
+import { toast } from "sonner"
+import { orpc } from "../../utils/orpc"
 
 export const Route = createFileRoute("/vote/")({
   component: VotePage,
-});
+})
 
-const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
+const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS
 
 function VotePage() {
-  const { connected, account, signAndSubmitTransaction } = useWallet();
-  const { data: pending, isLoading, refetch } = useQuery(
+  const { connected, account, signAndSubmitTransaction } = useWallet()
+  const {
+    data: pending,
+    isLoading,
+    refetch,
+  } = useQuery(
     orpc.contribution.list.queryOptions({
       input: { status: "pending" },
     }),
-  );
-  const castMutation = useMutation(orpc.vote.cast.mutationOptions());
+  )
+  const castMutation = useMutation(orpc.vote.cast.mutationOptions())
 
   async function handleVote(contributionId: string, decision: "approve" | "reject" | "improve") {
-    if (!connected || !account) return;
+    if (!connected || !account) return
 
     try {
-      const decisionValue = decision === "approve" ? 0 : decision === "reject" ? 1 : 2;
+      const decisionValue = decision === "approve" ? 0 : decision === "reject" ? 1 : 2
       const payload = {
         function: `${CONTRACT_ADDRESS}::dao_governance::cast_vote`,
-        functionArguments: [CONTRACT_ADDRESS, Array.from(new TextEncoder().encode(contributionId)), decisionValue],
-      };
+        functionArguments: [
+          CONTRACT_ADDRESS,
+          Array.from(new TextEncoder().encode(contributionId)),
+          decisionValue,
+        ],
+      }
 
-      const result = await signAndSubmitTransaction({ data: payload as any });
+      const result = await signAndSubmitTransaction({ data: payload as any })
 
       await castMutation.mutateAsync({
-        input: {
-          contributionId,
-          voterAddress: account.address,
-          decision,
-          aptosTxHash: result.hash,
-        },
-      });
+        contributionId,
+        voterAddress: account.address.toString(),
+        decision,
+        aptosTxHash: result.hash,
+      })
 
-      toast.success(`Vote cast: ${decision}`);
-      refetch();
+      toast.success(`Vote cast: ${decision}`)
+      refetch()
     } catch (e: any) {
-      toast.error(e.message || "Vote failed");
+      toast.error(e.message || "Vote failed")
     }
   }
 
@@ -64,17 +69,21 @@ function VotePage() {
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="text-xs font-mono text-indigo-400 mb-1">{c.id}</p>
-                  <p className="text-sm text-neutral-500">Contributor: {c.contributorAddress.slice(0, 10)}...</p>
+                  <p className="text-sm text-neutral-500">
+                    Contributor: {c.contributorAddress.slice(0, 10)}...
+                  </p>
                 </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleVote(c.id, "approve")}
+                    type="button"
                     className="px-4 py-2 bg-teal-600 rounded-lg text-sm font-bold"
                   >
                     Approve
                   </button>
                   <button
                     onClick={() => handleVote(c.id, "reject")}
+                    type="button"
                     className="px-4 py-2 bg-red-600 rounded-lg text-sm font-bold"
                   >
                     Reject
@@ -86,5 +95,5 @@ function VotePage() {
         </div>
       )}
     </div>
-  );
+  )
 }

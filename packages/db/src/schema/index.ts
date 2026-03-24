@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 export const datasets = sqliteTable("datasets", {
   id: text("id").primaryKey(),
@@ -7,7 +7,7 @@ export const datasets = sqliteTable("datasets", {
   ownerAddress: text("owner_address").notNull(),
   totalWeight: real("total_weight").notNull().default(0),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-});
+})
 
 export const members = sqliteTable("members", {
   address: text("address").primaryKey(),
@@ -15,7 +15,7 @@ export const members = sqliteTable("members", {
   approvedContributions: integer("approved_contributions").notNull().default(0),
   totalContributions: integer("total_contributions").notNull().default(0),
   joinedAt: integer("joined_at", { mode: "timestamp" }).notNull(),
-});
+})
 
 export const contributions = sqliteTable("contributions", {
   id: text("id").primaryKey(),
@@ -32,7 +32,7 @@ export const contributions = sqliteTable("contributions", {
     .default("pending"),
   aptosTxHash: text("aptos_tx_hash"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-});
+})
 
 export const votes = sqliteTable("votes", {
   id: text("id").primaryKey(),
@@ -45,7 +45,7 @@ export const votes = sqliteTable("votes", {
   votingPower: integer("voting_power").notNull(),
   aptosTxHash: text("aptos_tx_hash").notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-});
+})
 
 export const receipts = sqliteTable("receipts", {
   id: text("id").primaryKey(),
@@ -58,4 +58,4 @@ export const receipts = sqliteTable("receipts", {
   amount: integer("amount").notNull(),
   distributed: integer("distributed", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-});
+})

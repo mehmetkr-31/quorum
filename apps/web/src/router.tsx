@@ -1,10 +1,10 @@
-import { QueryClientProvider } from "@tanstack/react-query";
-import { createRouter as createTanStackRouter } from "@tanstack/react-router";
+import { QueryClientProvider } from "@tanstack/react-query"
+import { createRouter as createTanStackRouter } from "@tanstack/react-router"
 
-import "./index.css";
-import Loader from "./components/loader";
-import { routeTree } from "./routeTree.gen";
-import { orpc, queryClient } from "./utils/orpc";
+import "./index.css"
+import Loader from "./components/loader"
+import { routeTree } from "./routeTree.gen"
+import { orpc, queryClient } from "./utils/orpc"
 
 export const getRouter = () => {
   const router = createTanStackRouter({
@@ -17,12 +17,12 @@ export const getRouter = () => {
     Wrap: ({ children }) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     ),
-  });
-  return router;
-};
+  })
+  return router
+}
 
 declare module "@tanstack/react-router" {
   interface Register {
-    router: ReturnType<typeof getRouter>;
+    router: ReturnType<typeof getRouter>
   }
 }

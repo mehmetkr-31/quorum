@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod"
 
 export const serverEnv = z.object({
   DATABASE_URL: z.string().url(),
@@ -13,6 +13,6 @@ export const serverEnv = z.object({
   SHELBY_BASE_URL: z.string().url(),
   BETTER_AUTH_SECRET: z.string(),
   BETTER_AUTH_URL: z.string().url(),
-});
+})
 
-export const env = serverEnv.parse(process.env);
+export const env = serverEnv.parse(process.env)
