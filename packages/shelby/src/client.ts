@@ -1,6 +1,7 @@
 export interface ShelbyConfig {
   baseUrl: string
   apiKey: string
+  isMock?: boolean
 }
 
 export interface UploadResult {
@@ -20,10 +21,12 @@ export interface ShelbyReceipt {
 export class ShelbyClient {
   private baseUrl: string
   private apiKey: string
+  private isMock: boolean
 
   constructor(config: ShelbyConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, "")
     this.apiKey = config.apiKey
+    this.isMock = !!config.isMock
   }
 
   private authHeaders(): HeadersInit {
@@ -34,6 +37,16 @@ export class ShelbyClient {
     data: Uint8Array | Buffer,
     contentType = "application/octet-stream",
   ): Promise<UploadResult> {
+    if (this.isMock) {
+      console.log("Shelby Mock: Simulating upload...")
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      return {
+        shelbyAccount: "shelby://mock-account",
+        blobName: `mock-data-${Date.now()}.txt`,
+        dataHash: `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}`,
+      }
+    }
+
     const response = await fetch(`${this.baseUrl}/blobs`, {
       method: "POST",
       headers: {

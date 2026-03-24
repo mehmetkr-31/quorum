@@ -1,13 +1,9 @@
 import { createORPCClient } from "@orpc/client"
 import { RPCLink } from "@orpc/client/fetch"
 import type { RouterClient } from "@orpc/server"
-import { createRouterClient } from "@orpc/server"
 import { createTanstackQueryUtils } from "@orpc/tanstack-query"
-import { createContext } from "@quorum/api/context"
-import { appRouter } from "@quorum/api/routers/index"
+import type { AppRouter } from "@quorum/api/routers/index"
 import { QueryCache, QueryClient } from "@tanstack/react-query"
-import { createIsomorphicFn } from "@tanstack/react-start"
-import { getRequest } from "@tanstack/react-start/server"
 import { toast } from "sonner"
 
 export const queryClient = new QueryClient({
@@ -18,28 +14,19 @@ export const queryClient = new QueryClient({
   }),
 })
 
-const getORPCClient = createIsomorphicFn()
-  .server(() =>
-    createRouterClient(appRouter, {
-      context: async () => {
-        return createContext({ req: getRequest() })
-      },
-    }),
-  )
-  .client((): RouterClient<typeof appRouter> => {
-    const link = new RPCLink({
-      url: `${window.location.origin}/api/rpc`,
-      fetch(url, options) {
-        return fetch(url, {
-          ...options,
-          credentials: "include",
-        })
-      },
+const link = new RPCLink({
+  url:
+    typeof window !== "undefined"
+      ? `${window.location.origin}/api/rpc`
+      : "http://localhost:3001/api/rpc",
+  fetch(url, options) {
+    return fetch(url, {
+      ...options,
+      credentials: "include",
     })
+  },
+})
 
-    return createORPCClient(link)
-  })
-
-export const client: RouterClient<typeof appRouter> = getORPCClient()
+export const client: RouterClient<AppRouter> = createORPCClient(link)
 
 export const orpc = createTanstackQueryUtils(client)

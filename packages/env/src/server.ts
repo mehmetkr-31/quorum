@@ -11,8 +11,18 @@ export const serverEnv = z.object({
   SHELBY_NETWORK: z.string().default("SHELBYNET"),
   SHELBY_API_KEY: z.string().optional(),
   SHELBY_BASE_URL: z.string().url(),
+  SHELBY_MOCK: z
+    .string()
+    .optional()
+    .transform((v) => v === "true")
+    .default(false),
   BETTER_AUTH_SECRET: z.string(),
   BETTER_AUTH_URL: z.string().url(),
 })
 
-export const env = serverEnv.parse(process.env)
+const isServer = typeof window === "undefined"
+
+// Only parse if we are on the server; otherwise, skip to avoid ZodErrors in the browser bundle
+export const env = isServer 
+  ? serverEnv.parse(process.env) 
+  : {} as z.infer<typeof serverEnv>

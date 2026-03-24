@@ -31,6 +31,7 @@ function getShelbyClient(): ShelbyClient {
     _shelbyClient = new ShelbyClient({
       baseUrl: env.SHELBY_BASE_URL,
       apiKey: env.SHELBY_API_KEY ?? "",
+      isMock: env.SHELBY_MOCK,
     })
   }
   return _shelbyClient
