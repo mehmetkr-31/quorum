@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest"
+import { describe, expect, it } from "vitest"
 import { checkRateLimit, getClientIp } from "@/server/rate-limit"
 
 // rate-limit module'ünü yeniden yüklemek için store'u sıfırla

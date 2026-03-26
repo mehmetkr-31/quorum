@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest"
 import { call } from "@orpc/server"
 import { datasets, members, receipts } from "@quorum/db"
+import { beforeEach, describe, expect, it } from "vitest"
 import { governanceRouter } from "../routers/governance"
-import { createTestDb, setupTestSchema, createMockContext } from "./helpers"
+import { createMockContext, createTestDb, setupTestSchema } from "./helpers"
 
 describe("governanceRouter", () => {
   let db: ReturnType<typeof createTestDb>["db"]
@@ -25,13 +25,19 @@ describe("governanceRouter", () => {
   })
 
   it("getStats: veri varken doğru sayar", async () => {
-    await db.insert(datasets).values({ id: "d1", name: "D1", ownerAddress: "0x1", createdAt: new Date() })
+    await db
+      .insert(datasets)
+      .values({ id: "d1", name: "D1", ownerAddress: "0x1", createdAt: new Date() })
     await db.insert(members).values({ address: "0xm1", votingPower: 5, joinedAt: new Date() })
     await db.insert(members).values({ address: "0xm2", votingPower: 3, joinedAt: new Date() })
     await db.insert(receipts).values({
-      id: "r1", datasetId: "d1", readerAddress: "0xreader",
-      shelbyReceiptHash: "0xhash", aptosTxHash: "0xtx",
-      amount: 200_000_000, createdAt: new Date(),
+      id: "r1",
+      datasetId: "d1",
+      readerAddress: "0xreader",
+      shelbyReceiptHash: "0xhash",
+      aptosTxHash: "0xtx",
+      amount: 200_000_000,
+      createdAt: new Date(),
     })
 
     const stats = await call(governanceRouter.getStats, undefined, { context: ctx })

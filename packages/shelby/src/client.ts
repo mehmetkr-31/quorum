@@ -53,7 +53,7 @@ export class ShelbyClient {
         ...this.authHeaders(),
         "Content-Type": contentType,
       },
-      body: data as any,
+      body: data as BodyInit,
     })
     if (!response.ok) {
       throw new Error(`Shelby upload failed: ${response.status} ${response.statusText}`)

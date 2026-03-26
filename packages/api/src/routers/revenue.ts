@@ -70,9 +70,7 @@ export const revenueRouter = {
     .handler(async ({ input, context: ctx }) => {
       const query = ctx.db.select().from(receipts)
       if (input?.distributed !== undefined) {
-        return query
-          .where(eq(receipts.distributed, input.distributed))
-          .limit(input?.limit ?? 50)
+        return query.where(eq(receipts.distributed, input.distributed)).limit(input?.limit ?? 50)
       }
       return query.limit(input?.limit ?? 50)
     }),

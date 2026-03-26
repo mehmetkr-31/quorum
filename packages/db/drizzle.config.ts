@@ -10,7 +10,5 @@ export default {
   schema: "./src/schema/index.ts",
   out: "./drizzle",
   dialect: isTurso ? "turso" : "sqlite",
-  dbCredentials: isTurso
-    ? { url, authToken }
-    : { url },
+  dbCredentials: isTurso ? { url, authToken } : { url },
 } satisfies Config

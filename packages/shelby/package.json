@@ -7,7 +7,9 @@
     ".": "./src/client.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "biome lint .",
+    "format": "biome format . --write"
   },
   "dependencies": {
     "@quorum/env": "workspace:*"

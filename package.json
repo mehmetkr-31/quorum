@@ -12,6 +12,8 @@
     "db:generate": "turbo -F @quorum/db db:generate",
     "db:migrate": "turbo -F @quorum/db db:migrate",
     "check": "biome check --write .",
+    "lint": "biome lint .",
+    "format": "biome format . --write",
     "seed": "tsx seed.ts",
     "setup": "bash setup.sh",
     "test": "turbo test"

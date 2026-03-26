@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "biome lint .",
+    "format": "biome format . --write"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",

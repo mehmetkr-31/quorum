@@ -22,7 +22,7 @@ function DatasetsPage() {
         </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2">
-          {datasets?.map((ds: any) => (
+          {datasets?.map((ds) => (
             <div
               key={ds.id}
               className="rounded-[2rem] border border-neutral-800 bg-neutral-900/40 p-8 flex flex-col h-full hover:border-neutral-700 transition-colors"

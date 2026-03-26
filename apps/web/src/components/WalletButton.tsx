@@ -52,8 +52,9 @@ function WalletButtonClient() {
           resourceType: `${CONTRACT_ADDRESS}::dao_governance::Member`,
         })
         setIsMember(!!resource)
-      } catch (e: any) {
-        if (e?.status === 404 || e?.message?.includes("Resource not found")) {
+      } catch (e: unknown) {
+        const error = e as { status?: number; message?: string }
+        if (error?.status === 404 || error?.message?.includes("Resource not found")) {
           setIsMember(false)
         } else {
           console.error("Failed to check membership", e)
@@ -84,7 +85,7 @@ function WalletButtonClient() {
         const pubKey =
           typeof account.publicKey === "string"
             ? account.publicKey
-            : account.publicKey?.toString() ?? ""
+            : (account.publicKey?.toString() ?? "")
 
         const ok = await walletSignIn({
           address: addrStr!,
@@ -94,7 +95,7 @@ function WalletButtonClient() {
             const sig =
               typeof result.signature === "string"
                 ? result.signature
-                : (result.signature as any)?.toString() ?? ""
+                : ((result.signature as { toString(): string })?.toString() ?? "")
             return { signature: sig }
           },
         })
@@ -112,7 +113,10 @@ function WalletButtonClient() {
   }, [connected, addrStr])
 
   const handleConnect = async () => {
-    console.log("Mevcut wallets:", wallets?.map((w) => w.name))
+    console.log(
+      "Mevcut wallets:",
+      wallets?.map((w) => w.name),
+    )
     const wallet = wallets?.[0]
     if (!wallet) {
       toast.error("Petra wallet bulunamadı. Lütfen eklentiyi yükleyin.")

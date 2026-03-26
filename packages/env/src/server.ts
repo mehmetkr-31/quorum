@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 export const serverEnv = z.object({
-  DATABASE_URL: z.string().min(1),  // file:./local.db veya libsql://... olabilir
+  DATABASE_URL: z.string().min(1), // file:./local.db veya libsql://... olabilir
   DATABASE_AUTH_TOKEN: z.string().optional(),
   APTOS_PRIVATE_KEY: z.string().optional(),
   APTOS_API_KEY: z.string().optional(),

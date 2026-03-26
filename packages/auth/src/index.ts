@@ -1,12 +1,11 @@
+import crypto from "node:crypto"
 import { Ed25519PublicKey, Ed25519Signature } from "@aptos-labs/ts-sdk"
 import { authAccount, authSession, authUser, authVerification, createDb } from "@quorum/db"
 import { env } from "@quorum/env/server"
-import { APIError } from "better-auth"
+import { APIError, type BetterAuthPlugin, betterAuth } from "better-auth"
+import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { createAuthEndpoint } from "better-auth/api"
 import { setSessionCookie } from "better-auth/cookies"
-import { drizzleAdapter } from "better-auth/adapters/drizzle"
-import { betterAuth, type BetterAuthPlugin } from "better-auth"
-import crypto from "node:crypto"
 import { z } from "zod"
 
 // createDb yalnızca server'da çağrılmalı — module scope'dan kaldırıldı
@@ -132,23 +131,32 @@ function aptosWalletPlugin(): BetterAuthPlugin {
           }
 
           // Kullanıcı bul veya oluştur
-          type AnyUser = Record<string, any> & { id: string }
-          let foundUser = await ctx.context.adapter.findOne<AnyUser>({
+          const foundUser = (await ctx.context.adapter.findOne({
             model: "user",
             where: [{ field: "walletAddress", operator: "eq", value: address }],
-          })
+          })) as { id: string; walletAddress?: string | null } | null
 
-          if (!foundUser) {
-            foundUser = (await ctx.context.internalAdapter.createUser({
+          let user: { id: string; walletAddress?: string | null }
+          if (foundUser) {
+            user = foundUser
+          } else {
+            const newUser = await ctx.context.internalAdapter.createUser({
               email: `${address.toLowerCase()}@aptos.wallet`,
               name: `${address.slice(0, 8)}...${address.slice(-4)}`,
               emailVerified: true,
               walletAddress: address,
               createdAt: new Date(),
               updatedAt: new Date(),
-            })) as AnyUser
+            })
+            if (!newUser) {
+              throw APIError.fromStatus("INTERNAL_SERVER_ERROR", {
+                message: "Kullanıcı oluşturulamadı",
+                status: 500,
+              })
+            }
+            user = { id: newUser.id, walletAddress: address }
             await ctx.context.internalAdapter.createAccount({
-              userId: foundUser.id,
+              userId: user.id,
               providerId: "aptos-wallet",
               accountId: address,
               createdAt: new Date(),
@@ -156,7 +164,7 @@ function aptosWalletPlugin(): BetterAuthPlugin {
             })
           }
 
-          const session = await ctx.context.internalAdapter.createSession(foundUser.id)
+          const session = await ctx.context.internalAdapter.createSession(user.id)
           if (!session) {
             throw APIError.fromStatus("INTERNAL_SERVER_ERROR", {
               message: "Oturum oluşturulamadı",
@@ -166,9 +174,9 @@ function aptosWalletPlugin(): BetterAuthPlugin {
 
           await setSessionCookie(ctx, {
             session,
-            user: foundUser as Parameters<typeof setSessionCookie>[1]["user"],
+            user: user as any, // better-auth setSessionCookie expectation varies, keeping as any for now but logic above is cleaner
           })
-          return ctx.json({ success: true, user: { id: foundUser.id, walletAddress: address } })
+          return ctx.json({ success: true, user: { id: user.id, walletAddress: address } })
         },
       ),
     },

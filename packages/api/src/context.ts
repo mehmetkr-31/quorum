@@ -60,7 +60,7 @@ export async function createContext({ req }: { req: Request }): Promise<Context>
       session = {
         id: result.session.id,
         userId: result.user.id,
-        walletAddress: (result.user as any).walletAddress ?? "",
+        walletAddress: (result.user as { walletAddress?: string }).walletAddress ?? "",
       }
     }
   } catch {

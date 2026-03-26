@@ -18,6 +18,43 @@ async function rpc<T>(path: string, input?: unknown): Promise<T> {
   return res.json() as Promise<T>
 }
 
+interface Dataset {
+  id: string
+  name: string
+  description?: string
+  contributionCount?: number
+  totalWeight?: number
+}
+
+interface Contribution {
+  id: string
+  status: string
+  datasetId: string
+  contributorAddress: string
+  weight: number
+}
+
+interface Stats {
+  totalMembers: number
+  totalContributions: number
+  totalRevenue: number
+}
+
+interface LeaderboardMember {
+  address: string
+  votingPower: number
+  approvedContributions: number
+  totalContributions: number
+  accuracy: number
+}
+
+interface Receipt {
+  id: string
+  amount: number
+  distributed: boolean
+  readerAddress: string
+}
+
 const server = new McpServer({
   name: "quorum-dao",
   version: "1.0.0",
@@ -29,7 +66,7 @@ server.tool(
   "List all available AI training datasets in the Quorum DAO marketplace",
   { limit: z.number().min(1).max(100).default(20).optional() },
   async ({ limit }) => {
-    const datasets = await rpc<any[]>("dataset.list", { limit })
+    const datasets = await rpc<Dataset[]>("dataset.list", { limit })
     const text = datasets
       .map(
         (d) =>
@@ -51,7 +88,7 @@ server.tool(
     limit: z.number().min(1).max(100).default(20).optional(),
   },
   async ({ status, limit }) => {
-    const contributions = await rpc<any[]>("contribution.list", { status, limit })
+    const contributions = await rpc<Contribution[]>("contribution.list", { status, limit })
     const text = contributions
       .map(
         (c) =>
@@ -91,7 +128,7 @@ server.tool(
   "Export all approved contributions of a dataset as JSONL (HuggingFace-compatible format)",
   { datasetId: z.string() },
   async ({ datasetId }) => {
-    const rows = await rpc<any[]>("dataset.export", { datasetId })
+    const rows = await rpc<Record<string, unknown>[]>("dataset.export", { datasetId })
     if (!rows.length) {
       return { content: [{ type: "text" as const, text: "No approved contributions found." }] }
     }
@@ -113,7 +150,7 @@ server.tool(
   "Get overall Quorum DAO statistics: total members, contributions, and revenue",
   {},
   async () => {
-    const stats = await rpc<any>("governance.getStats")
+    const stats = await rpc<Stats>("governance.getStats")
     return {
       content: [
         {
@@ -136,7 +173,7 @@ server.tool(
   "Get the DAO member reputation leaderboard ranked by voting power and approved contributions",
   { limit: z.number().min(1).max(50).default(10).optional() },
   async ({ limit }) => {
-    const leaderboard = await rpc<any[]>("governance.getLeaderboard", { limit })
+    const leaderboard = await rpc<LeaderboardMember[]>("governance.getLeaderboard", { limit })
     const text = leaderboard
       .map(
         (m, i) =>
@@ -158,7 +195,7 @@ server.tool(
     limit: z.number().min(1).max(100).default(20).optional(),
   },
   async ({ distributed, limit }) => {
-    const receipts = await rpc<any[]>("revenue.listReceipts", { distributed, limit })
+    const receipts = await rpc<Receipt[]>("revenue.listReceipts", { distributed, limit })
     const text = receipts
       .map(
         (r) =>

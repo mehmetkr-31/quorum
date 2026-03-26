@@ -1,4 +1,5 @@
 export * from "./auth"
+
 import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 export const indexerState = sqliteTable("indexer_state", {

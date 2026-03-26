@@ -25,7 +25,10 @@
       "!**/dist",
       "!**/.vinxi",
       "!**/*.gen.ts",
-      "!**/drizzle"
+      "!**/drizzle",
+      "!**/.turbo",
+      "!**/.aptos",
+      "!**/build"
     ]
   },
   "css": {

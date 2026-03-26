@@ -95,12 +95,18 @@ async function processEvents() {
       eventType: `${CONTRACT_ADDRESS}::dao_governance::ContributionFinalized`,
     })
 
+    interface ContributionFinalizedData {
+      contribution_id: string
+      approved: boolean
+      weight: string | number
+    }
+
     for (const event of finalizedEvents) {
       if (BigInt(event.sequence_number) <= seq.ContributionFinalized) continue
 
-      const data = event.data as any
+      const data = event.data as ContributionFinalizedData
       const contributionId = hexToString(data.contribution_id)
-      const approved = data.approved as boolean
+      const approved = data.approved
       const weight = Number(data.weight)
 
       console.log(`[Indexer] ContributionFinalized: ${contributionId} - Approved: ${approved}`)
@@ -121,10 +127,16 @@ async function processEvents() {
       eventType: `${CONTRACT_ADDRESS}::dao_governance::VoteCast`,
     })
 
+    interface VoteCastData {
+      voter: string
+      decision: string | number
+      voting_power: string | number
+    }
+
     for (const event of voteEvents) {
       if (BigInt(event.sequence_number) <= seq.VoteCast) continue
 
-      const data = event.data as any
+      const data = event.data as VoteCastData
       const voterAddress = data.voter
       const decisionNum = Number(data.decision)
       const decisionStr = decisionNum === 0 ? "approve" : decisionNum === 1 ? "reject" : "improve"
@@ -133,7 +145,11 @@ async function processEvents() {
 
       await db
         .insert(members)
-        .values({ address: voterAddress, votingPower: Number(data.voting_power), joinedAt: new Date() })
+        .values({
+          address: voterAddress,
+          votingPower: Number(data.voting_power),
+          joinedAt: new Date(),
+        })
         .onConflictDoNothing()
 
       const newSeq = BigInt(event.sequence_number)
@@ -147,10 +163,14 @@ async function processEvents() {
       eventType: `${CONTRACT_ADDRESS}::revenue_splitter::RevenueDistributed`,
     })
 
+    interface RevenueDistributedData {
+      shelby_receipt_hash: string
+    }
+
     for (const event of revenueEvents) {
       if (BigInt(event.sequence_number) <= seq.RevenueDistributed) continue
 
-      const data = event.data as any
+      const data = event.data as RevenueDistributedData
       const receiptHashHex = hexToString(data.shelby_receipt_hash)
 
       console.log(`[Indexer] RevenueDistributed for receipt: ${receiptHashHex}`)

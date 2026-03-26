@@ -9,21 +9,24 @@ interface RateLimitEntry {
 const store = new Map<string, RateLimitEntry>()
 
 // Her 5 dakikada bir eski kayıtları temizle
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, entry] of store) {
-    if (now > entry.resetAt) store.delete(key)
-  }
-}, 5 * 60 * 1000)
+setInterval(
+  () => {
+    const now = Date.now()
+    for (const [key, entry] of store) {
+      if (now > entry.resetAt) store.delete(key)
+    }
+  },
+  5 * 60 * 1000,
+)
 
 export interface RateLimitConfig {
-  windowMs: number  // zaman penceresi (ms)
-  max: number       // pencere başına maksimum istek
+  windowMs: number // zaman penceresi (ms)
+  max: number // pencere başına maksimum istek
 }
 
 const DEFAULT_CONFIG: RateLimitConfig = {
   windowMs: 60_000, // 1 dakika
-  max: 60,          // dakikada 60 istek
+  max: 60, // dakikada 60 istek
 }
 
 export function checkRateLimit(ip: string, config: RateLimitConfig = DEFAULT_CONFIG): boolean {

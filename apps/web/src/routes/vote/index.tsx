@@ -53,7 +53,7 @@ function ContributionPreview({ id }: { id: string }) {
     try {
       textContent = atob(base64Data)
       if (textContent.length > 800) textContent = textContent.slice(0, 800) + "\n\n... (truncated)"
-    } catch (e) {
+    } catch (_e) {
       textContent = "Failed to decode text content."
     }
   }
@@ -112,8 +112,9 @@ function VotePage() {
           resourceType: `${CONTRACT_ADDRESS}::dao_governance::Member`,
         })
         setIsMember(!!resource)
-      } catch (e: any) {
-        if (e?.status === 404 || e?.message?.includes("Resource not found")) {
+      } catch (e: unknown) {
+        const error = e as { status?: number; message?: string }
+        if (error?.status === 404 || error?.message?.includes("Resource not found")) {
           setIsMember(false)
         } else {
           console.error("Failed to check membership", e)
@@ -131,13 +132,15 @@ function VotePage() {
         function: `${CONTRACT_ADDRESS}::dao_governance::register_member`,
         functionArguments: [],
       }
-      const result = await signAndSubmitTransaction({ data: payload as any })
+      const result = await signAndSubmitTransaction({
+        data: payload as { function: `${string}::${string}::${string}`; functionArguments: any[] },
+      })
       await aptos.waitForTransaction({ transactionHash: result.hash })
       setIsMember(true)
       toast.success("Successfully joined the DAO!")
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e)
-      toast.error(e.message || "Failed to join DAO")
+      toast.error((e as Error).message || "Failed to join DAO")
     } finally {
       setIsJoining(false)
     }
@@ -162,7 +165,9 @@ function VotePage() {
         ],
       }
 
-      const result = await signAndSubmitTransaction({ data: payload as any })
+      const result = await signAndSubmitTransaction({
+        data: payload as { function: `${string}::${string}::${string}`; functionArguments: any[] },
+      })
       await aptos.waitForTransaction({ transactionHash: result.hash })
 
       await castMutation.mutateAsync({
@@ -174,9 +179,9 @@ function VotePage() {
 
       toast.success(`Vote cast: ${decision}`)
       refetch()
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Vote Error:", e)
-      const errorMsg = e.message || ""
+      const errorMsg = (e as Error).message || ""
 
       if (errorMsg.includes("0x1")) {
         toast.error("You are not a DAO Member. Please join first.")
@@ -201,14 +206,16 @@ function VotePage() {
         functionArguments: [CONTRACT_ADDRESS, Array.from(new TextEncoder().encode(contributionId))],
       }
 
-      const result = await signAndSubmitTransaction({ data: payload as any })
+      const result = await signAndSubmitTransaction({
+        data: payload as { function: `${string}::${string}::${string}`; functionArguments: any[] },
+      })
       await aptos.waitForTransaction({ transactionHash: result.hash })
 
       toast.success("Contribution finalized on-chain!")
       refetch()
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Finalize Error:", e)
-      const errorMsg = e.message || ""
+      const errorMsg = (e as Error).message || ""
 
       if (errorMsg.includes("0x5")) {
         toast.error("This contribution is already finalized.")

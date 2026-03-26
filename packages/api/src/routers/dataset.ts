@@ -77,10 +77,7 @@ export const datasetRouter = {
         })
         .from(contributions)
         .where(
-          and(
-            eq(contributions.datasetId, input.datasetId),
-            eq(contributions.status, "approved"),
-          ),
+          and(eq(contributions.datasetId, input.datasetId), eq(contributions.status, "approved")),
         )
 
       return rows.map((r) => ({

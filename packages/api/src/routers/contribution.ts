@@ -1,7 +1,7 @@
 import { contributions } from "@quorum/db"
 import { and, eq } from "drizzle-orm"
 import { z } from "zod"
-import { protectedProcedure, publicProcedure } from "../index"
+import { publicProcedure } from "../index"
 
 export const contributionRouter = {
   submit: publicProcedure
@@ -71,7 +71,7 @@ export const contributionRouter = {
           data: base64,
           contentType: res.contentType,
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error(`Failed to read blob from Shelby: ${contribution.shelbyBlobName}`, e)
         throw new Error("Failed to fetch content from Shelby Protocol")
       }

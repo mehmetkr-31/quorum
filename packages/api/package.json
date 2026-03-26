@@ -11,6 +11,8 @@
   "scripts": {
     "dev": "pnpm run indexer",
     "typecheck": "tsc --noEmit",
+    "lint": "biome lint .",
+    "format": "biome format . --write",
     "indexer": "tsx src/indexer.ts",
     "test": "vitest run",
     "test:watch": "vitest"

@@ -1,6 +1,6 @@
 import { createClient } from "@libsql/client"
-import { drizzle } from "drizzle-orm/libsql"
 import * as schema from "@quorum/db"
+import { drizzle } from "drizzle-orm/libsql"
 import type { Context } from "../context"
 
 export function createTestDb() {
