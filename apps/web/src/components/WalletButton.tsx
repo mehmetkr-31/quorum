@@ -1,7 +1,7 @@
-import { AptosWalletAdapterProvider, useWallet } from "@aptos-labs/wallet-adapter-react"
 import { Network } from "@aptos-labs/ts-sdk"
+import { AptosWalletAdapterProvider, useWallet } from "@aptos-labs/wallet-adapter-react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import { useState, useEffect } from "react"
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false)
@@ -37,7 +37,11 @@ export function WalletButton() {
 
   if (!mounted) {
     return (
-      <button disabled className="rounded-xl bg-indigo-600/50 px-5 py-2.5 text-sm font-bold opacity-50 cursor-wait">
+      <button
+        type="button"
+        disabled
+        className="rounded-xl bg-indigo-600/50 px-5 py-2.5 text-sm font-bold opacity-50 cursor-wait"
+      >
         Loading Wallet...
       </button>
     )
@@ -50,8 +54,11 @@ function WalletButtonClient() {
   const { connected, account, disconnect, connect, wallets } = useWallet()
 
   const handleConnect = async () => {
-    console.log("Attempting to connect. Available wallets:", wallets?.map(w => w.name))
-    const petra = wallets?.find(w => w.name === "Petra" || w.name === "Petra Web")
+    console.log(
+      "Attempting to connect. Available wallets:",
+      wallets?.map((w) => w.name),
+    )
+    const petra = wallets?.find((w) => w.name === "Petra" || w.name === "Petra Web")
     if (!petra) {
       toast.error("Petra wallet not found. Please install the extension.")
       return
@@ -71,7 +78,8 @@ function WalletButtonClient() {
         <span className="text-xs font-mono text-indigo-400 bg-indigo-400/10 px-2 py-1 rounded">
           {addr.slice(0, 6)}...{addr.slice(-4)}
         </span>
-        <button 
+        <button
+          type="button"
           onClick={() => disconnect()}
           className="text-xs font-bold text-neutral-400 hover:text-white transition-colors"
         >
@@ -83,6 +91,7 @@ function WalletButtonClient() {
 
   return (
     <button
+      type="button"
       onClick={handleConnect}
       className="rounded-xl bg-indigo-600 hover:bg-indigo-500 px-5 py-2.5 text-sm font-bold transition-all shadow-lg active:scale-95"
     >
@@ -90,4 +99,3 @@ function WalletButtonClient() {
     </button>
   )
 }
-

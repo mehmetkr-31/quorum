@@ -23,6 +23,4 @@ export const serverEnv = z.object({
 const isServer = typeof window === "undefined"
 
 // Only parse if we are on the server; otherwise, skip to avoid ZodErrors in the browser bundle
-export const env = isServer 
-  ? serverEnv.parse(process.env) 
-  : {} as z.infer<typeof serverEnv>
+export const env = isServer ? serverEnv.parse(process.env) : ({} as z.infer<typeof serverEnv>)

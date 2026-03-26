@@ -1,5 +1,5 @@
 import { contributions } from "@quorum/db"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { z } from "zod"
 import { publicProcedure } from "../index"
 
@@ -23,7 +23,7 @@ export const contributionRouter = {
         id,
         datasetId: input.datasetId,
         contributorAddress: input.contributorAddress,
-        shelbyAccount: res.shelbyAccount,
+        shelbyAccount: input.shelbyAccount || res.shelbyAccount,
         shelbyBlobName: res.blobName,
         dataHash: res.dataHash,
         createdAt: new Date(),
@@ -63,10 +63,15 @@ export const contributionRouter = {
         .optional(),
     )
     .handler(async ({ input, context: ctx }) => {
-      // For simplicity, we filter in memory or add dynamic where later
+      const filters = []
+      if (input?.status) filters.push(eq(contributions.status, input.status))
+      if (input?.contributorAddress)
+        filters.push(eq(contributions.contributorAddress, input.contributorAddress))
+
       const rows = await ctx.db
         .select()
         .from(contributions)
+        .where(filters.length > 0 ? and(...filters) : undefined)
         .limit(input?.limit ?? 50)
       return rows
     }),

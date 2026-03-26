@@ -30,6 +30,9 @@ catalogs:
     '@types/react-dom':
       specifier: ^19.2.3
       version: 19.2.3
+    dotenv:
+      specifier: ^17.2.2
+      version: 17.3.1
     lucide-react:
       specifier: ^0.546.0
       version: 0.546.0
@@ -122,7 +125,7 @@ importers:
         version: 6.0.1(vite@8.0.2(@types/node@22.19.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0))
       nitro:
         specifier: ^3.0.260311-beta
-        version: 3.0.260311-beta(@libsql/client@0.17.2)(chokidar@5.0.0)(drizzle-orm@0.36.4(@libsql/client@0.17.2)(@opentelemetry/api@1.9.0)(@types/react@19.2.14)(kysely@0.28.14)(react@19.2.4))(jiti@2.6.1)(rollup@4.60.0)(vite@8.0.2(@types/node@22.19.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0))
+        version: 3.0.260311-beta(@libsql/client@0.17.2)(chokidar@5.0.0)(dotenv@17.3.1)(drizzle-orm@0.36.4(@libsql/client@0.17.2)(@opentelemetry/api@1.9.0)(@types/react@19.2.14)(kysely@0.28.14)(react@19.2.4))(jiti@2.6.1)(rollup@4.60.0)(vite@8.0.2(@types/node@22.19.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0))
       tailwindcss:
         specifier: ^4.2.2
         version: 4.2.2
@@ -232,6 +235,9 @@ importers:
 
   packages/api:
     dependencies:
+      '@aptos-labs/ts-sdk':
+        specifier: ^1.33.1
+        version: 1.39.0(axios@1.13.6)(got@11.8.6)
       '@orpc/openapi':
         specifier: 'catalog:'
         version: 1.13.9(@opentelemetry/api@1.9.0)(crossws@0.4.4(srvx@0.11.12))(ws@8.20.0)
@@ -263,6 +269,12 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 22.19.15
+      dotenv:
+        specifier: 'catalog:'
+        version: 17.3.1
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
 
   packages/aptos:
     dependencies:
@@ -2870,6 +2882,10 @@ packages:
 
   domutils@3.2.2:
     resolution: {integrity: sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==}
+
+  dotenv@17.3.1:
+    resolution: {integrity: sha512-IO8C/dzEb6O3F9/twg6ZLXz164a2fhTnEWb95H23Dm4OuN+92NmEAlTrupP9VW6Jm3sO26tQlqyvyi4CsnY9GA==}
+    engines: {node: '>=12'}
 
   drizzle-kit@0.28.1:
     resolution: {integrity: sha512-JimOV+ystXTWMgZkLHYHf2w3oS28hxiH1FR0dkmJLc7GHzdGJoJAQtQS5DRppnabsRZwE2U1F6CuezVBgmsBBQ==}
@@ -7335,6 +7351,8 @@ snapshots:
       domelementtype: 2.3.0
       domhandler: 5.0.3
 
+  dotenv@17.3.1: {}
+
   drizzle-kit@0.28.1:
     dependencies:
       '@drizzle-team/brocli': 0.10.2
@@ -8691,7 +8709,7 @@ snapshots:
 
   nf3@0.3.13: {}
 
-  nitro@3.0.260311-beta(@libsql/client@0.17.2)(chokidar@5.0.0)(drizzle-orm@0.36.4(@libsql/client@0.17.2)(@opentelemetry/api@1.9.0)(@types/react@19.2.14)(kysely@0.28.14)(react@19.2.4))(jiti@2.6.1)(rollup@4.60.0)(vite@8.0.2(@types/node@22.19.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)):
+  nitro@3.0.260311-beta(@libsql/client@0.17.2)(chokidar@5.0.0)(dotenv@17.3.1)(drizzle-orm@0.36.4(@libsql/client@0.17.2)(@opentelemetry/api@1.9.0)(@types/react@19.2.14)(kysely@0.28.14)(react@19.2.4))(jiti@2.6.1)(rollup@4.60.0)(vite@8.0.2(@types/node@22.19.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)):
     dependencies:
       consola: 3.4.2
       crossws: 0.4.4(srvx@0.11.12)
@@ -8708,6 +8726,7 @@ snapshots:
       unenv: 2.0.0-rc.24
       unstorage: 2.0.0-alpha.7(chokidar@5.0.0)(db0@0.3.4(@libsql/client@0.17.2)(drizzle-orm@0.36.4(@libsql/client@0.17.2)(@opentelemetry/api@1.9.0)(@types/react@19.2.14)(kysely@0.28.14)(react@19.2.4)))(ofetch@2.0.0-alpha.3)
     optionalDependencies:
+      dotenv: 17.3.1
       jiti: 2.6.1
       rollup: 4.60.0
       vite: 8.0.2(@types/node@22.19.15)(esbuild@0.27.4)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)

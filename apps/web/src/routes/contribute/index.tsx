@@ -1,7 +1,8 @@
+import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk"
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { orpc } from "../../utils/orpc"
 
@@ -10,6 +11,14 @@ export const Route = createFileRoute("/contribute/")({
 })
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS
+const NODE_URL = import.meta.env.VITE_APTOS_NODE_URL
+
+const aptos = new Aptos(
+  new AptosConfig({
+    network: NODE_URL?.includes("testnet") ? Network.TESTNET : Network.DEVNET,
+    fullnode: NODE_URL,
+  }),
+)
 
 function ContributePage() {
   const { connected, account, signAndSubmitTransaction } = useWallet()
@@ -19,9 +28,53 @@ function ContributePage() {
   const [status, setStatus] = useState<"idle" | "uploading" | "signing" | "done" | "error">("idle")
   const fileRef = useRef<HTMLInputElement>(null)
 
+  const [isMember, setIsMember] = useState<boolean | null>(null)
+  const [isJoining, setIsJoining] = useState(false)
+
   const { data: datasets } = useQuery(orpc.dataset.list.queryOptions())
   const submitMutation = useMutation(orpc.contribution.submit.mutationOptions())
   const confirmMutation = useMutation(orpc.contribution.confirmOnChain.mutationOptions())
+
+  // Check if the connected wallet is registered as a DAO Member
+  useEffect(() => {
+    async function checkMembership() {
+      if (!account?.address) return
+      try {
+        const resource = await aptos.getAccountResource({
+          accountAddress: account.address.toString(),
+          resourceType: `${CONTRACT_ADDRESS}::dao_governance::Member`,
+        })
+        setIsMember(!!resource)
+      } catch (e: any) {
+        if (e?.status === 404 || e?.message?.includes("Resource not found")) {
+          setIsMember(false)
+        } else {
+          console.error("Failed to check membership", e)
+        }
+      }
+    }
+    checkMembership()
+  }, [account?.address, isJoining])
+
+  async function handleJoinDAO() {
+    if (!connected || !account) return
+    setIsJoining(true)
+    try {
+      const payload = {
+        function: `${CONTRACT_ADDRESS}::dao_governance::register_member`,
+        functionArguments: [],
+      }
+      const result = await signAndSubmitTransaction({ data: payload as any })
+      await aptos.waitForTransaction({ transactionHash: result.hash })
+      setIsMember(true)
+      toast.success("Successfully joined the DAO!")
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e.message || "Failed to join DAO")
+    } finally {
+      setIsJoining(false)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -120,7 +173,8 @@ function ContributePage() {
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          className="w-full cursor-pointer rounded-2xl border-2 border-dashed border-neutral-800 p-12 text-center hover:border-neutral-600 transition-all"
+          disabled={!isMember}
+          className="w-full cursor-pointer rounded-2xl border-2 border-dashed border-neutral-800 p-12 text-center hover:border-neutral-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {file ? file.name : "Click to select file"}
           <input
@@ -128,20 +182,32 @@ function ContributePage() {
             type="file"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             className="hidden"
+            disabled={!isMember}
           />
         </button>
 
-        <button
-          type="submit"
-          disabled={status === "uploading" || status === "signing" || !connected}
-          className="w-full rounded-xl bg-indigo-600 py-4 font-bold disabled:opacity-50"
-        >
-          {status === "uploading"
-            ? "Uploading..."
-            : status === "signing"
-              ? "Signing..."
-              : "Submit to DAO"}
-        </button>
+        {!isMember ? (
+          <button
+            type="button"
+            onClick={handleJoinDAO}
+            disabled={isJoining || isMember === null}
+            className="w-full rounded-xl bg-teal-600 py-4 font-bold disabled:opacity-50"
+          >
+            {isJoining ? "Joining DAO..." : "Join DAO First to Contribute"}
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={status === "uploading" || status === "signing" || !connected}
+            className="w-full rounded-xl bg-indigo-600 py-4 font-bold disabled:opacity-50"
+          >
+            {status === "uploading"
+              ? "Uploading..."
+              : status === "signing"
+                ? "Signing..."
+                : "Submit to DAO"}
+          </button>
+        )}
       </form>
     </div>
   )

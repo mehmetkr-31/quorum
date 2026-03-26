@@ -1,5 +1,5 @@
-import { members, receipts } from "@quorum/db"
-import { eq } from "drizzle-orm"
+import { contributions, members, receipts } from "@quorum/db"
+import { and, eq, sql } from "drizzle-orm"
 import { z } from "zod"
 import { publicProcedure } from "../index"
 
@@ -38,9 +38,23 @@ export const revenueRouter = {
         .limit(1)
       const member = rows[0]
       if (!member) return { approvedContributions: 0, totalWeight: 0 }
+
+      // Fix Issue 3: Calculate actual approved weight sum
+      const weightRows = await ctx.db
+        .select({
+          totalWeight: sql<number>`sum(${contributions.weight})`.mapWith(Number),
+        })
+        .from(contributions)
+        .where(
+          and(
+            eq(contributions.contributorAddress, input.contributorAddress),
+            eq(contributions.status, "approved"),
+          ),
+        )
+
       return {
         approvedContributions: member.approvedContributions,
-        totalWeight: member.totalContributions,
+        totalWeight: weightRows[0]?.totalWeight ?? 0,
       }
     }),
 
