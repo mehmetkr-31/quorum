@@ -25,6 +25,8 @@ function ContributePage() {
   const [selectedDatasetId, setSelectedDatasetId] = useState("")
   const [shelbyAccount, setShelbyAccount] = useState("")
   const [file, setFile] = useState<File | null>(null)
+  const [previewContent, setPreviewContent] = useState<string | null>(null)
+  const [previewType, setPreviewType] = useState<"image" | "text" | "unsupported" | null>(null)
   const [status, setStatus] = useState<"idle" | "uploading" | "signing" | "done" | "error">("idle")
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -34,6 +36,43 @@ function ContributePage() {
   const { data: datasets } = useQuery(orpc.dataset.list.queryOptions())
   const submitMutation = useMutation(orpc.contribution.submit.mutationOptions())
   const confirmMutation = useMutation(orpc.contribution.confirmOnChain.mutationOptions())
+
+  // Handle file selection and preview generation
+  function handleFileChange(selectedFile: File | null) {
+    setFile(selectedFile)
+    setPreviewContent(null)
+    setPreviewType(null)
+
+    if (!selectedFile) return
+
+    const fileType = selectedFile.type
+
+    if (fileType.startsWith("image/")) {
+      setPreviewType("image")
+      const reader = new FileReader()
+      reader.onload = (e) => setPreviewContent(e.target?.result as string)
+      reader.readAsDataURL(selectedFile)
+    } else if (
+      fileType.startsWith("text/") ||
+      fileType === "application/json" ||
+      fileType === "application/javascript" ||
+      selectedFile.name.endsWith(".md") ||
+      selectedFile.name.endsWith(".ts")
+    ) {
+      setPreviewType("text")
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const text = e.target?.result as string
+        // Preview only first 1000 characters
+        setPreviewContent(
+          text.slice(0, 1000) + (text.length > 1000 ? "\n\n... (truncated for preview)" : ""),
+        )
+      }
+      reader.readAsText(selectedFile)
+    } else {
+      setPreviewType("unsupported")
+    }
+  }
 
   // Check if the connected wallet is registered as a DAO Member
   useEffect(() => {
@@ -180,11 +219,48 @@ function ContributePage() {
           <input
             ref={fileRef}
             type="file"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
             className="hidden"
             disabled={!isMember}
           />
         </button>
+
+        {/* File Preview Section */}
+        {file && (
+          <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
+            <h3 className="text-sm font-bold text-neutral-300 mb-2 flex items-center justify-between">
+              <span>Preview: {file.name}</span>
+              <span className="text-xs font-mono text-neutral-500">
+                {(file.size / 1024).toFixed(2)} KB
+              </span>
+            </h3>
+
+            <div className="bg-neutral-950 rounded-lg p-4 overflow-hidden border border-neutral-800/50">
+              {previewType === "image" && previewContent ? (
+                <img
+                  src={previewContent}
+                  alt="Preview"
+                  className="max-h-64 object-contain mx-auto rounded"
+                />
+              ) : previewType === "text" && previewContent ? (
+                <pre className="text-xs text-neutral-400 font-mono whitespace-pre-wrap overflow-y-auto max-h-64 scrollbar-thin">
+                  {previewContent}
+                </pre>
+              ) : previewType === "unsupported" ? (
+                <div className="text-center py-8 text-neutral-500">
+                  <p>Binary or unsupported file format.</p>
+                  <p className="text-xs mt-1">
+                    Preview is not available, but you can still submit.
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-neutral-500 animate-pulse">
+                  Loading preview...
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {!isMember ? (
           <button

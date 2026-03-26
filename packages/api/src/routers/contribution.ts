@@ -1,10 +1,10 @@
 import { contributions } from "@quorum/db"
 import { and, eq } from "drizzle-orm"
 import { z } from "zod"
-import { publicProcedure } from "../index"
+import { protectedProcedure, publicProcedure } from "../index"
 
 export const contributionRouter = {
-  submit: publicProcedure
+  submit: protectedProcedure
     .input(
       z.object({
         datasetId: z.string(),
@@ -50,6 +50,31 @@ export const contributionRouter = {
         .set({ aptosTxHash: input.aptosTxHash })
         .where(eq(contributions.id, input.id))
       return { success: true }
+    }),
+
+  getContent: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .handler(async ({ input, context: ctx }) => {
+      const rows = await ctx.db
+        .select()
+        .from(contributions)
+        .where(eq(contributions.id, input.id))
+        .limit(1)
+
+      const contribution = rows[0]
+      if (!contribution) throw new Error("Contribution not found")
+
+      try {
+        const res = await ctx.shelbyClient.read(contribution.shelbyBlobName)
+        const base64 = Buffer.from(res.data).toString("base64")
+        return {
+          data: base64,
+          contentType: res.contentType,
+        }
+      } catch (e: any) {
+        console.error(`Failed to read blob from Shelby: ${contribution.shelbyBlobName}`, e)
+        throw new Error("Failed to fetch content from Shelby Protocol")
+      }
     }),
 
   list: publicProcedure

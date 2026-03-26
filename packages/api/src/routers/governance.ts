@@ -1,5 +1,5 @@
 import { contributions, members, receipts } from "@quorum/db"
-import { count, sum } from "drizzle-orm"
+import { count, desc, sum } from "drizzle-orm"
 import { publicProcedure } from "../index"
 
 export const governanceRouter = {
@@ -21,6 +21,6 @@ export const governanceRouter = {
   }),
 
   listMembers: publicProcedure.handler(async ({ context: ctx }) => {
-    return ctx.db.select().from(members).orderBy(members.votingPower)
+    return ctx.db.select().from(members).orderBy(desc(members.votingPower))
   }),
 }

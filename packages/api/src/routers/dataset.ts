@@ -1,9 +1,10 @@
-import { datasets } from "@quorum/db"
+import { contributions, datasets } from "@quorum/db"
+import { eq, sql } from "drizzle-orm"
 import { z } from "zod"
-import { publicProcedure } from "../index"
+import { protectedProcedure, publicProcedure } from "../index"
 
 export const datasetRouter = {
-  create: publicProcedure
+  create: protectedProcedure
     .input(
       z.object({
         name: z.string().min(1),
@@ -32,9 +33,22 @@ export const datasetRouter = {
         .optional(),
     )
     .handler(async ({ input, context: ctx }) => {
-      return ctx.db
-        .select()
+      const rows = await ctx.db
+        .select({
+          id: datasets.id,
+          name: datasets.name,
+          description: datasets.description,
+          ownerAddress: datasets.ownerAddress,
+          createdAt: datasets.createdAt,
+          totalWeight: datasets.totalWeight,
+          contributionCount: sql<number>`count(${contributions.id})`.mapWith(Number),
+          lastActivity: sql<Date | null>`max(${contributions.createdAt})`,
+        })
         .from(datasets)
+        .leftJoin(contributions, eq(datasets.id, contributions.datasetId))
+        .groupBy(datasets.id)
         .limit(input?.limit ?? 50)
+
+      return rows
     }),
 }

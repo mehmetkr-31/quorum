@@ -1,4 +1,5 @@
 import { Network, QuorumAptosClient } from "@quorum/aptos"
+import { auth } from "@quorum/auth"
 import { createDb, type Db } from "@quorum/db"
 import { env } from "@quorum/env/server"
 import { ShelbyClient } from "@quorum/shelby"
@@ -37,16 +38,39 @@ function getShelbyClient(): ShelbyClient {
   return _shelbyClient
 }
 
+export interface Session {
+  id: string
+  userId: string
+  walletAddress: string
+}
+
 export interface Context {
   db: Db
   aptosClient: QuorumAptosClient
   shelbyClient: ShelbyClient
+  session: Session | null
 }
 
-export async function createContext({ req: _req }: { req: Request }): Promise<Context> {
+export async function createContext({ req }: { req: Request }): Promise<Context> {
+  let session: Session | null = null
+
+  try {
+    const result = await auth.api.getSession({ headers: req.headers })
+    if (result?.session && result.user) {
+      session = {
+        id: result.session.id,
+        userId: result.user.id,
+        walletAddress: (result.user as any).walletAddress ?? "",
+      }
+    }
+  } catch {
+    // Oturum yoksa devam et
+  }
+
   return {
     db: getDb(),
     aptosClient: getAptosClient(),
     shelbyClient: getShelbyClient(),
+    session,
   }
 }

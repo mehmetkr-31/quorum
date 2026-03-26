@@ -1,10 +1,36 @@
 import { contributions, votes } from "@quorum/db"
-import { eq, sql } from "drizzle-orm"
+import { desc, eq, sql } from "drizzle-orm"
 import { z } from "zod"
-import { publicProcedure } from "../index"
+import { protectedProcedure, publicProcedure } from "../index"
 
 export const voteRouter = {
-  cast: publicProcedure
+  listHistory: publicProcedure
+    .input(
+      z
+        .object({
+          limit: z.number().default(50).optional(),
+        })
+        .optional(),
+    )
+    .handler(async ({ input, context: ctx }) => {
+      const rows = await ctx.db
+        .select({
+          id: votes.id,
+          contributionId: votes.contributionId,
+          voterAddress: votes.voterAddress,
+          decision: votes.decision,
+          votingPower: votes.votingPower,
+          aptosTxHash: votes.aptosTxHash,
+          createdAt: votes.createdAt,
+        })
+        .from(votes)
+        .orderBy(desc(votes.createdAt))
+        .limit(input?.limit ?? 50)
+
+      return rows
+    }),
+
+  cast: protectedProcedure
     .input(
       z.object({
         contributionId: z.string(),

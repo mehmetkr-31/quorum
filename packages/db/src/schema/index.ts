@@ -1,4 +1,11 @@
+export * from "./auth"
 import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core"
+
+export const indexerState = sqliteTable("indexer_state", {
+  eventType: text("event_type").primaryKey(),
+  lastSequenceNumber: text("last_sequence_number").notNull().default("0"),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+})
 
 export const datasets = sqliteTable("datasets", {
   id: text("id").primaryKey(),

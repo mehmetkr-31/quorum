@@ -71,6 +71,24 @@ export class ShelbyClient {
     return new Uint8Array(await response.arrayBuffer())
   }
 
+  async read(blobName: string): Promise<{ data: Uint8Array; contentType: string }> {
+    if (this.isMock) {
+      return {
+        data: new TextEncoder().encode(`mock-content-for-${blobName}`),
+        contentType: "application/octet-stream",
+      }
+    }
+    const response = await fetch(`${this.baseUrl}/blobs/${encodeURIComponent(blobName)}`, {
+      headers: this.authHeaders(),
+    })
+    if (!response.ok) {
+      throw new Error(`Shelby read failed: ${response.status} ${response.statusText}`)
+    }
+    const contentType = response.headers.get("Content-Type") ?? "application/octet-stream"
+    const data = new Uint8Array(await response.arrayBuffer())
+    return { data, contentType }
+  }
+
   async getReceipt(receiptHash: string): Promise<ShelbyReceipt> {
     const response = await fetch(`${this.baseUrl}/receipts/${encodeURIComponent(receiptHash)}`, {
       headers: this.authHeaders(),
