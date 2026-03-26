@@ -9,25 +9,24 @@ export function createTestDb() {
   return { db, client }
 }
 
-export async function setupTestSchema(db: ReturnType<typeof createTestDb>["db"]) {
-  const client = (db as any).$client as ReturnType<typeof createClient>
-  await client.executeMultiple(`
-    CREATE TABLE IF NOT EXISTS datasets (
+export async function setupTestSchema(client: ReturnType<typeof createClient>) {
+  await client.batch([
+    `CREATE TABLE IF NOT EXISTS datasets (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       description TEXT,
       owner_address TEXT NOT NULL,
       total_weight REAL NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS members (
+    )`,
+    `CREATE TABLE IF NOT EXISTS members (
       address TEXT PRIMARY KEY,
       voting_power INTEGER NOT NULL DEFAULT 1,
       approved_contributions INTEGER NOT NULL DEFAULT 0,
       total_contributions INTEGER NOT NULL DEFAULT 0,
       joined_at INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS contributions (
+    )`,
+    `CREATE TABLE IF NOT EXISTS contributions (
       id TEXT PRIMARY KEY,
       dataset_id TEXT NOT NULL,
       contributor_address TEXT NOT NULL,
@@ -38,8 +37,8 @@ export async function setupTestSchema(db: ReturnType<typeof createTestDb>["db"])
       status TEXT NOT NULL DEFAULT 'pending',
       aptos_tx_hash TEXT,
       created_at INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS votes (
+    )`,
+    `CREATE TABLE IF NOT EXISTS votes (
       id TEXT PRIMARY KEY,
       contribution_id TEXT NOT NULL,
       voter_address TEXT NOT NULL,
@@ -48,8 +47,8 @@ export async function setupTestSchema(db: ReturnType<typeof createTestDb>["db"])
       voting_power INTEGER NOT NULL,
       aptos_tx_hash TEXT NOT NULL,
       created_at INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS receipts (
+    )`,
+    `CREATE TABLE IF NOT EXISTS receipts (
       id TEXT PRIMARY KEY,
       dataset_id TEXT NOT NULL,
       reader_address TEXT NOT NULL,
@@ -58,8 +57,8 @@ export async function setupTestSchema(db: ReturnType<typeof createTestDb>["db"])
       amount INTEGER NOT NULL,
       distributed INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL
-    );
-  `)
+    )`,
+  ])
 }
 
 export function createMockContext(db: ReturnType<typeof createTestDb>["db"]): Context {
@@ -85,4 +84,13 @@ export function createMockContext(db: ReturnType<typeof createTestDb>["db"]): Co
       walletAddress: "0xtest",
     },
   }
+}
+
+/** Bir handler'ı doğrudan çağırmak için yardımcı */
+export async function callHandler<T>(
+  router: { handler: (args: { input: T; context: Context }) => Promise<any> },
+  input: T,
+  ctx: Context,
+) {
+  return router.handler({ input, context: ctx })
 }

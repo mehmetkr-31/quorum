@@ -66,3 +66,15 @@ export const receipts = sqliteTable("receipts", {
   distributed: integer("distributed", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 })
+
+// Tip export'ları
+export type Dataset = typeof datasets.$inferSelect
+export type NewDataset = typeof datasets.$inferInsert
+export type Member = typeof members.$inferSelect
+export type NewMember = typeof members.$inferInsert
+export type Contribution = typeof contributions.$inferSelect
+export type NewContribution = typeof contributions.$inferInsert
+export type Vote = typeof votes.$inferSelect
+export type NewVote = typeof votes.$inferInsert
+export type Receipt = typeof receipts.$inferSelect
+export type NewReceipt = typeof receipts.$inferInsert

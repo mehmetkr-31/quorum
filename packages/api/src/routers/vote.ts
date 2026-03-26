@@ -1,5 +1,5 @@
-import { contributions, votes } from "@quorum/db"
-import { desc, eq, sql } from "drizzle-orm"
+import { votes } from "@quorum/db"
+import { desc } from "drizzle-orm"
 import { z } from "zod"
 import { protectedProcedure, publicProcedure } from "../index"
 
@@ -30,7 +30,7 @@ export const voteRouter = {
       return rows
     }),
 
-  cast: protectedProcedure
+  cast: publicProcedure
     .input(
       z.object({
         contributionId: z.string(),
@@ -55,24 +55,9 @@ export const voteRouter = {
         createdAt: new Date(),
       })
 
-      // Fix Issue 4: Update contribution local state
-      // For now, any approval vote increments weight and sets to approved
-      // In a real DAO, this would happen after quorum threshold is reached
-      if (input.decision === "approve") {
-        await ctx.db
-          .update(contributions)
-          .set({
-            status: "approved",
-            weight: sql`${contributions.weight} + ${votingPower}`,
-          })
-          .where(eq(contributions.id, input.contributionId))
-      } else if (input.decision === "reject") {
-        // Simple rejection logic: one reject vote for now (or threshold)
-        await ctx.db
-          .update(contributions)
-          .set({ status: "rejected" })
-          .where(eq(contributions.id, input.contributionId))
-      }
+      // Contribution status is managed by the indexer via ContributionFinalized events.
+      // We only record the vote here; the on-chain finalization (after 48h voting window)
+      // triggers the indexer to update status based on quorum threshold.
 
       return { id }
     }),

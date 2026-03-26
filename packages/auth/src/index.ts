@@ -1,5 +1,5 @@
 import { Ed25519PublicKey, Ed25519Signature } from "@aptos-labs/ts-sdk"
-import { createDb } from "@quorum/db"
+import { authAccount, authSession, authUser, authVerification, createDb } from "@quorum/db"
 import { env } from "@quorum/env/server"
 import { APIError } from "better-auth"
 import { createAuthEndpoint } from "better-auth/api"
@@ -9,7 +9,46 @@ import { betterAuth, type BetterAuthPlugin } from "better-auth"
 import crypto from "node:crypto"
 import { z } from "zod"
 
-const db = createDb(env.DATABASE_URL, env.DATABASE_AUTH_TOKEN)
+// createDb yalnızca server'da çağrılmalı — module scope'dan kaldırıldı
+function createAuthInstance() {
+  const db = createDb(env.DATABASE_URL, env.DATABASE_AUTH_TOKEN)
+  return betterAuth({
+    database: drizzleAdapter(db, {
+      provider: "sqlite",
+      camelCase: true,
+      schema: {
+        user: authUser,
+        session: authSession,
+        account: authAccount,
+        verification: authVerification,
+      },
+    }),
+    secret: env.BETTER_AUTH_SECRET,
+    baseURL: env.BETTER_AUTH_URL,
+    trustedOrigins: [
+      "http://localhost:3001",
+      "http://localhost:3002",
+      "http://localhost:3003",
+      "http://localhost:3004",
+      "http://localhost:3005",
+      "http://localhost:3000",
+    ],
+    plugins: [aptosWalletPlugin()],
+  })
+}
+
+let _auth: ReturnType<typeof createAuthInstance> | null = null
+function getAuth() {
+  if (!_auth) _auth = createAuthInstance()
+  return _auth
+}
+
+// Proxy — handler/api erişimi lazy init yapar
+export const auth = new Proxy({} as ReturnType<typeof createAuthInstance>, {
+  get(_t, prop) {
+    return getAuth()[prop as keyof ReturnType<typeof createAuthInstance>]
+  },
+})
 
 function aptosWalletPlugin(): BetterAuthPlugin {
   return {
@@ -135,15 +174,5 @@ function aptosWalletPlugin(): BetterAuthPlugin {
     },
   }
 }
-
-export const auth = betterAuth({
-  database: drizzleAdapter(db, {
-    provider: "sqlite",
-    camelCase: true,
-  }),
-  secret: env.BETTER_AUTH_SECRET,
-  baseURL: env.BETTER_AUTH_URL,
-  plugins: [aptosWalletPlugin()],
-})
 
 export type Auth = typeof auth

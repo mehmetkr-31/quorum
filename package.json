@@ -11,12 +11,16 @@
     "db:studio": "turbo -F @quorum/db db:studio",
     "db:generate": "turbo -F @quorum/db db:generate",
     "db:migrate": "turbo -F @quorum/db db:migrate",
-    "check": "biome check --write ."
+    "check": "biome check --write .",
+    "seed": "tsx seed.ts",
+    "setup": "bash setup.sh",
+    "test": "turbo test"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.0",
     "playwright": "1.58.2",
     "turbo": "^2.8.12",
+    "tsx": "^4.21.0",
     "typescript": "^5.0.0"
   },
   "packageManager": "pnpm@10.0.0"

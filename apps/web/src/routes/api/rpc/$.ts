@@ -1,43 +1,51 @@
-import { OpenAPIHandler } from "@orpc/openapi/fetch"
-import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins"
-import { onError } from "@orpc/server"
-import { RPCHandler } from "@orpc/server/fetch"
-import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4"
-import { createContext } from "@quorum/api/context"
-import { appRouter } from "@quorum/api/routers/index"
 import { createFileRoute } from "@tanstack/react-router"
+import { checkRateLimit, getClientIp } from "@/server/rate-limit"
 
-const rpcHandler = new RPCHandler(appRouter, {
-  interceptors: [
-    onError((error) => {
-      console.error(error)
-    }),
-  ],
-})
-
-const apiHandler = new OpenAPIHandler(appRouter, {
-  plugins: [
-    new OpenAPIReferencePlugin({
-      schemaConverters: [new ZodToJsonSchemaConverter()],
-    }),
-  ],
-  interceptors: [
-    onError((error) => {
-      console.error(error)
-    }),
-  ],
-})
-
+// Server-only import'lar handler içinde — client bundle'a dahil olmaz
 async function handle({ request }: { request: Request }) {
-  const rpcResult = await rpcHandler.handle(request, {
-    prefix: "/api/rpc",
-    context: await createContext({ req: request }),
+  const ip = getClientIp(request)
+  if (!checkRateLimit(ip)) {
+    return new Response(JSON.stringify({ error: "Too Many Requests" }), {
+      status: 429,
+      headers: { "Content-Type": "application/json", "Retry-After": "60" },
+    })
+  }
+
+  const [
+    { RPCHandler },
+    { onError },
+    { OpenAPIHandler },
+    { OpenAPIReferencePlugin },
+    { ZodToJsonSchemaConverter },
+    { createContext },
+    { appRouter },
+  ] = await Promise.all([
+    import("@orpc/server/fetch"),
+    import("@orpc/server"),
+    import("@orpc/openapi/fetch"),
+    import("@orpc/openapi/plugins"),
+    import("@orpc/zod/zod4"),
+    import("@quorum/api/context"),
+    import("@quorum/api/routers/index"),
+  ])
+
+  const rpcHandler = new RPCHandler(appRouter, {
+    interceptors: [onError((error) => console.error(error))],
   })
+
+  const apiHandler = new OpenAPIHandler(appRouter, {
+    plugins: [new OpenAPIReferencePlugin({ schemaConverters: [new ZodToJsonSchemaConverter()] })],
+    interceptors: [onError((error) => console.error(error))],
+  })
+
+  const ctx = await createContext({ req: request })
+
+  const rpcResult = await rpcHandler.handle(request, { prefix: "/api/rpc", context: ctx })
   if (rpcResult.response) return rpcResult.response
 
   const apiResult = await apiHandler.handle(request, {
     prefix: "/api/rpc/api-reference",
-    context: await createContext({ req: request }),
+    context: ctx,
   })
   if (apiResult.response) return apiResult.response
 

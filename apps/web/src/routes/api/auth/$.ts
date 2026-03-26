@@ -1,7 +1,7 @@
-import { auth } from "@quorum/auth"
 import { createFileRoute } from "@tanstack/react-router"
 
 async function handle({ request }: { request: Request }) {
+  const { auth } = await import("@quorum/auth")
   return auth.handler(request)
 }
 

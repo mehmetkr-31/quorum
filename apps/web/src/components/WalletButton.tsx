@@ -1,6 +1,6 @@
 import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk"
 import { AptosWalletAdapterProvider, useWallet } from "@aptos-labs/wallet-adapter-react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { walletSignIn, walletSignOut } from "@/utils/auth-client"
 
@@ -14,21 +14,12 @@ const aptos = new Aptos(
   }),
 )
 
+// Provider her zaman render edilir — mounted trick'i kaldırıldı.
+// AptosWalletAdapterProvider browser-safe, SSR'da boş state döner.
 export function WalletProvider({ children }: { children: React.ReactNode }) {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
-    return <>{children}</>
-  }
-
   return (
     <AptosWalletAdapterProvider
-      optInWallets={["Petra"]}
-      autoConnect={true}
+      autoConnect={false}
       dappConfig={{ network: Network.TESTNET }}
       onError={(e) => {
         console.error("Wallet Provider Error:", e)
@@ -40,24 +31,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function WalletButton() {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
-    return (
-      <button
-        type="button"
-        disabled
-        className="rounded-xl bg-indigo-600/50 px-5 py-2.5 text-sm font-bold opacity-50 cursor-wait"
-      >
-        Loading Wallet...
-      </button>
-    )
-  }
-
   return <WalletButtonClient />
 }
 
@@ -65,13 +38,17 @@ function WalletButtonClient() {
   const { connected, account, disconnect, connect, wallets, signMessage } = useWallet()
   const [isMember, setIsMember] = useState<boolean | null>(null)
   const [isAuthenticating, setIsAuthenticating] = useState(false)
+  // Auth bir kez çalışsın — address string'i değiştiğinde sıfırlanır
+  const authDoneRef = useRef<string | null>(null)
+
+  const addrStr = account?.address?.toString() ?? null
 
   useEffect(() => {
     async function checkMembership() {
-      if (!account?.address) return
+      if (!addrStr) return
       try {
         const resource = await aptos.getAccountResource({
-          accountAddress: account.address.toString(),
+          accountAddress: addrStr,
           resourceType: `${CONTRACT_ADDRESS}::dao_governance::Member`,
         })
         setIsMember(!!resource)
@@ -84,17 +61,24 @@ function WalletButtonClient() {
       }
     }
 
-    if (connected && account) {
+    if (connected && addrStr) {
       checkMembership()
     } else {
       setIsMember(null)
     }
-  }, [connected, account?.address])
+  }, [connected, addrStr])
 
-  // Wallet bağlandığında sunucu oturumu oluştur
   useEffect(() => {
+    // Aynı adres için tekrar çalışmasın
+    if (!connected || !addrStr || !signMessage) {
+      if (!connected) authDoneRef.current = null
+      return
+    }
+    if (authDoneRef.current === addrStr) return
+    authDoneRef.current = addrStr
+
     async function authenticate() {
-      if (!connected || !account || !signMessage) return
+      if (!account) return
       setIsAuthenticating(true)
       try {
         const pubKey =
@@ -103,10 +87,10 @@ function WalletButtonClient() {
             : account.publicKey?.toString() ?? ""
 
         const ok = await walletSignIn({
-          address: account.address.toString(),
+          address: addrStr!,
           publicKey: pubKey,
           signMessage: async ({ message, nonce }) => {
-            const result = await signMessage({ message, nonce })
+            const result = await signMessage!({ message, nonce })
             const sig =
               typeof result.signature === "string"
                 ? result.signature
@@ -118,22 +102,24 @@ function WalletButtonClient() {
         if (!ok) toast.error("Sunucu oturumu başlatılamadı.")
       } catch (e) {
         console.error("Auth error", e)
+        authDoneRef.current = null // hata olursa tekrar denenebilir
       } finally {
         setIsAuthenticating(false)
       }
     }
 
     authenticate()
-  }, [connected, account?.address])
+  }, [connected, addrStr])
 
   const handleConnect = async () => {
-    const petra = wallets?.find((w) => w.name === "Petra" || w.name === "Petra Web")
-    if (!petra) {
+    console.log("Mevcut wallets:", wallets?.map((w) => w.name))
+    const wallet = wallets?.[0]
+    if (!wallet) {
       toast.error("Petra wallet bulunamadı. Lütfen eklentiyi yükleyin.")
       return
     }
     try {
-      await connect(petra.name)
+      await connect(wallet.name)
     } catch (e) {
       console.error("Connect error:", e)
       toast.error("Bağlantı başarısız.")

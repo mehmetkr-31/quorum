@@ -9,16 +9,16 @@ else
   echo "✓ apps/web/.env mevcut"
 fi
 
-[ ! -f "packages/db/.env" ] && echo "DATABASE_URL=file:../../apps/web/local.db" > packages/db/.env
+[ ! -f "packages/db/.env" ] && echo "DATABASE_URL=file:./apps/web/local.db" > packages/db/.env
 
 echo "Installing dependencies..."
 pnpm install
 
 echo "Creating database tables..."
-cd packages/db && DATABASE_URL="file:../../apps/web/local.db" pnpm db:push && cd ../..
+DATABASE_URL="file:./apps/web/local.db" pnpm --filter @quorum/db db:push
 
 echo "Seeding default datasets..."
-cd packages/api && DATABASE_URL="file:../../apps/web/local.db" pnpm tsx seed.ts && cd ../..
+DATABASE_URL="file:./apps/web/local.db" pnpm tsx seed.ts
 
 echo ""
 echo "✓ Setup complete! Run: pnpm dev"

@@ -1,5 +1,6 @@
 import { contributions, members, receipts } from "@quorum/db"
 import { count, desc, sum } from "drizzle-orm"
+import { z } from "zod"
 import { publicProcedure } from "../index"
 
 export const governanceRouter = {
@@ -23,4 +24,28 @@ export const governanceRouter = {
   listMembers: publicProcedure.handler(async ({ context: ctx }) => {
     return ctx.db.select().from(members).orderBy(desc(members.votingPower))
   }),
+
+  getLeaderboard: publicProcedure
+    .input(z.object({ limit: z.number().default(10).optional() }).optional())
+    .handler(async ({ input, context: ctx }) => {
+      const rows = await ctx.db
+        .select({
+          address: members.address,
+          votingPower: members.votingPower,
+          approvedContributions: members.approvedContributions,
+          totalContributions: members.totalContributions,
+          joinedAt: members.joinedAt,
+        })
+        .from(members)
+        .orderBy(desc(members.votingPower), desc(members.approvedContributions))
+        .limit(input?.limit ?? 10)
+
+      return rows.map((m) => ({
+        ...m,
+        accuracy:
+          m.totalContributions > 0
+            ? Math.round((m.approvedContributions / m.totalContributions) * 100)
+            : 0,
+      }))
+    }),
 }

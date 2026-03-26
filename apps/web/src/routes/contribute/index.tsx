@@ -93,7 +93,7 @@ function ContributePage() {
       }
     }
     checkMembership()
-  }, [account?.address, isJoining])
+  }, [account?.address?.toString(), isJoining])
 
   async function handleJoinDAO() {
     if (!connected || !account) return

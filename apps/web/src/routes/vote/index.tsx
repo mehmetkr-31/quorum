@@ -121,7 +121,7 @@ function VotePage() {
       }
     }
     checkMembership()
-  }, [account?.address, isJoining])
+  }, [account?.address?.toString(), isJoining])
 
   async function handleJoinDAO() {
     if (!connected || !account) return

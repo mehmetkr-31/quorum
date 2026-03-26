@@ -68,9 +68,12 @@ export const revenueRouter = {
         .optional(),
     )
     .handler(async ({ input, context: ctx }) => {
-      return ctx.db
-        .select()
-        .from(receipts)
-        .limit(input?.limit ?? 50)
+      const query = ctx.db.select().from(receipts)
+      if (input?.distributed !== undefined) {
+        return query
+          .where(eq(receipts.distributed, input.distributed))
+          .limit(input?.limit ?? 50)
+      }
+      return query.limit(input?.limit ?? 50)
     }),
 }

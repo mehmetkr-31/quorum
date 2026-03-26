@@ -4,7 +4,7 @@ import { z } from "zod"
 import { protectedProcedure, publicProcedure } from "../index"
 
 export const contributionRouter = {
-  submit: protectedProcedure
+  submit: publicProcedure
     .input(
       z.object({
         datasetId: z.string(),

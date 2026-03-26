@@ -1,15 +1,20 @@
 import path from "node:path"
 import { config } from "dotenv"
 
-// Load .env from workspace root or apps/web
-config({ path: path.resolve(process.cwd(), "../../apps/web/.env") })
+// Load .env from apps/web — resolve relative to this file's location
+const webEnvPath = path.resolve(import.meta.dirname, "../../../apps/web/.env")
+config({ path: webEnvPath })
 
 import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk"
 import { contributions, createDb, indexerState, members, receipts } from "@quorum/db"
 import { eq } from "drizzle-orm"
 
-// Initialize database
-const dbUrl = process.env.DATABASE_URL || "file:../../dev.db"
+// Initialize database — resolve relative DB paths relative to apps/web directory
+const webDir = path.resolve(import.meta.dirname, "../../../apps/web")
+const rawDbUrl = process.env.DATABASE_URL || "file:./local.db"
+const dbUrl = rawDbUrl.startsWith("file:./")
+  ? `file:${path.resolve(webDir, rawDbUrl.slice(7))}`
+  : rawDbUrl
 const dbToken = process.env.DATABASE_AUTH_TOKEN
 const db = createDb(dbUrl, dbToken)
 
@@ -164,7 +169,7 @@ async function processEvents() {
   }
 }
 
-export function startIndexer(intervalMs = 5000) {
+export function startIndexer(intervalMs = 60000) {
   if (!CONTRACT_ADDRESS) {
     console.log("Indexer disabled (no contract address).")
     return

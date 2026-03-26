@@ -7,7 +7,9 @@
     "dev": "vite dev",
     "build": "vite build",
     "start": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@aptos-labs/ts-sdk": "^1.33.1",
@@ -41,10 +43,15 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/user-event": "^14.0.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "jsdom": "^25.0.0",
     "tailwindcss": "catalog:",
     "typescript": "^5.0.0",
     "vite": "^6.0.0",
-    "vite-tsconfig-paths": "^5.1.0"
+    "vite-tsconfig-paths": "^5.1.0",
+    "vitest": "^2.0.0"
   }
 }

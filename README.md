@@ -119,15 +119,14 @@ Revenue automatically split to all approved contributors
 | Layer | Technology |
 |---|---|
 | **Frontend** | TanStack Start |
-| **API** | tRPC |
-| **Auth** | Better Auth |
-| **Database** | SQLite + Drizzle ORM |
-| **Storage** | Shelby Protocol (`@shelby-protocol/sdk`) |
+| **API** | oRPC (`@orpc/server`) |
+| **Auth** | Better Auth 1.5 (Aptos wallet plugin) |
+| **Database** | SQLite / Turso + Drizzle ORM |
+| **Storage** | Shelby Protocol |
 | **Blockchain** | Aptos (`@aptos-labs/ts-sdk`), Move smart contracts |
-| **Monorepo** | Turborepo |
+| **Monorepo** | Turborepo + pnpm workspaces |
 | **Linting** | Biome |
-| **Docs** | Fumadocs |
-| **MCP** | Quorum MCP Server |
+| **Tests** | Vitest (37 tests) |
 | **Package Manager** | pnpm |
 
 ---
@@ -305,27 +304,32 @@ quorum/
 
 ## Development Roadmap
 
-### Phase 1 — Core Infrastructure (Weeks 1–3)
-- [ ] Shelby package: upload / download / receipt capture
-- [ ] Aptos package: `submit_contribution` + `cast_vote`
-- [ ] Drizzle schema: contributions, votes, receipts, members
-- [ ] tRPC: `contribution.submit`, `vote.cast`, `dataset.read`
-- **Milestone**: First on-chain vote recorded on Aptos testnet
+### Phase 1 — Core Infrastructure ✅
+- [x] Shelby package: upload / download / receipt capture
+- [x] Aptos package: `submit_contribution` + `cast_vote` + `finalize_contribution`
+- [x] Drizzle schema: contributions, votes, receipts, members, indexer_state, auth tables
+- [x] oRPC: contribution, vote, dataset, governance, revenue routers
+- [x] Move smart contracts: `dao_governance.move` + `revenue_splitter.move`
+- **Milestone**: First on-chain vote recorded on Aptos testnet ✅
 
-### Phase 2 — MVP DAO (Weeks 4–8)
-- [ ] Contributor portal: submit UI + wallet connect (Better Auth)
-- [ ] Voting dashboard: review queue + decision UI
-- [ ] Voting power calculation (on-chain, history-based)
-- [ ] Revenue distribution contract + payout dashboard
-- [ ] Fumadocs: contributor guide + API reference
-- **Milestone**: Full loop — submit → vote → approve → revenue → payout
+### Phase 2 — MVP DAO ✅
+- [x] Contributor portal: submit UI + wallet connect (Better Auth + Aptos plugin)
+- [x] Voting dashboard: review queue + decision UI + finalization
+- [x] Voting power calculation (on-chain, via `get_voting_power` view function)
+- [x] Revenue distribution contract + payout dashboard
+- [x] IP-based rate limiting (60 req/min) + OpenAPI reference
+- [x] On-chain event indexer: ContributionFinalized, VoteCast, RevenueDistributed
+- [x] Unit tests: 37 tests (API + frontend)
+- [x] CI/CD: GitHub Actions + Fly.io deployment
+- **Milestone**: Full loop — submit → vote → approve → revenue → payout ✅
 
-### Phase 3 — Open Platform (Weeks 9–12)
+### Phase 3 — Open Platform ✅
+- [x] Quorum MCP server: AI agents can query datasets, contributions, governance stats
+- [x] HuggingFace-compatible export: `dataset.export` → JSONL format
+- [x] Reputation leaderboard: voter accuracy % ranked by voting power
 - [ ] Multiple DAO instances (any community can launch a dataset DAO)
-- [ ] Quorum MCP server: AI agents can submit + query datasets directly
-- [ ] HuggingFace integration: export approved datasets
-- [ ] Reputation system: voter accuracy leaderboard
-- **Milestone**: First community-launched dataset DAO live
+- [ ] HuggingFace Hub direct push integration
+- **Milestone**: AI agents can read and interact with Quorum datasets via MCP ✅
 
 ---
 
@@ -340,10 +344,35 @@ Traditional storage cannot make this trustless. The revenue split requires crypt
 ```bash
 git clone https://github.com/mehmetkr-31/quorum
 cd quorum
+pnpm setup    # .env oluşturur, DB tablolarını yükler, seed çalıştırır
+pnpm dev      # http://localhost:3001
+```
+
+**Manuel kurulum:**
+```bash
 pnpm install
 cp apps/web/.env.example apps/web/.env
-pnpm --filter @quorum/db migrate
+# .env içinde gerekli değerleri doldur
+DATABASE_URL=file:./apps/web/local.db pnpm --filter @quorum/db db:push
 pnpm dev
+```
+
+**Testler:**
+```bash
+pnpm test           # Tüm testler (37 test)
+pnpm --filter @quorum/api test
+pnpm --filter @quorum/web test
+```
+
+**Deployment (Fly.io):**
+```bash
+flyctl launch --no-deploy
+flyctl secrets set DATABASE_URL="libsql://..." DATABASE_AUTH_TOKEN="..." \
+  BETTER_AUTH_SECRET="$(openssl rand -hex 32)" BETTER_AUTH_URL="https://your-app.fly.dev" \
+  QUORUM_CONTRACT_ADDRESS="0x63ff..." APTOS_NODE_URL="https://fullnode.testnet.aptoslabs.com/v1" \
+  SHELBY_BASE_URL="..." VITE_CONTRACT_ADDRESS="0x63ff..." \
+  VITE_APTOS_NODE_URL="https://fullnode.testnet.aptoslabs.com/v1"
+flyctl deploy
 ```
 
 ---

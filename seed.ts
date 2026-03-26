@@ -1,4 +1,9 @@
-import { datasets, db } from "./packages/db/src/index.js"
+import { createDb, datasets } from "./packages/db/src/index.js"
+
+const db = createDb(
+  process.env.DATABASE_URL ?? "file:./apps/web/local.db",
+  process.env.DATABASE_AUTH_TOKEN,
+)
 
 async function seed() {
   await db

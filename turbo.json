@@ -24,6 +24,9 @@
     },
     "db:migrate": {
       "cache": false
+    },
+    "test": {
+      "cache": false
     }
   }
 }
