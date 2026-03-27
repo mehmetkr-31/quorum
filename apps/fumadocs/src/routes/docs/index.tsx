@@ -1,10 +1,12 @@
 import { createFileRoute, notFound } from "@tanstack/react-router"
+import type { TOCItemType } from "fumadocs-core/toc"
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/page"
-import { docs } from "../../../.source/server"
+import type { FC } from "react"
+import { source } from "../../lib/source"
 
 export const Route = createFileRoute("/docs/")({
   loader: () => {
-    const page = docs.getPage([])
+    const page = source.getPage([])
     if (!page) throw notFound()
     return page
   },
@@ -13,14 +15,14 @@ export const Route = createFileRoute("/docs/")({
 
 function DocIndexPage() {
   const page = Route.useLoaderData()
-  const MDX = page.data.exports.default
+  const exports = page.data._exports as { default: FC; toc: TOCItemType[] }
 
   return (
-    <DocsPage toc={page.data.exports.toc} full={page.data.full}>
+    <DocsPage toc={exports.toc} full={page.data.full}>
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>
-        <MDX />
+        <exports.default />
       </DocsBody>
     </DocsPage>
   )

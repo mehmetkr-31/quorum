@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router"
 import { DocsLayout } from "fumadocs-ui/layouts/docs"
-import { docs } from "../../.source/server"
+import { source } from "../lib/source"
 
 export const Route = createFileRoute("/docs")({
   component: DocsLayoutRoute,
@@ -9,7 +9,7 @@ export const Route = createFileRoute("/docs")({
 function DocsLayoutRoute() {
   return (
     <DocsLayout
-      tree={docs.pageTree}
+      tree={source.pageTree}
       nav={{ title: "Quorum Docs" }}
       sidebar={{ defaultOpenLevel: 1 }}
     >
