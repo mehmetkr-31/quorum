@@ -1,0 +1,71 @@
+---
+title: Architecture
+description: How Quorum's components fit together
+---
+
+# Architecture
+
+Quorum combines three systems: **Aptos blockchain** for governance and revenue, **Shelby Protocol** for blob storage, and a **TypeScript API layer** that ties them together.
+
+## Data Flow
+
+```
+Contributor → API (submit) → Shelby (upload blob) → Aptos (submit_contribution tx)
+                                                          ↓
+DAO Members ──────────────────────────────────── cast_vote tx
+                                                          ↓
+                                              finalize_contribution
+                                           (approved → weight credited)
+                                                          ↓
+AI reads dataset → Shelby receipt → Aptos (anchor_receipt tx)
+                                                          ↓
+                              distribute_revenue tx (70% contributors / 20% curators / 10% treasury)
+```
+
+## Packages
+
+| Package | Purpose |
+|---|---|
+| `@quorum/aptos` | Wraps `@aptos-labs/ts-sdk` — builds and submits Move transactions |
+| `@quorum/shelby` | HTTP client for Shelby Protocol blob storage |
+| `@quorum/db` | Drizzle ORM schema (SQLite local / Turso prod) |
+| `@quorum/mcp` | MCP server exposing Quorum data to AI assistants |
+| `apps/web` | TanStack Start frontend + oRPC backend |
+| `apps/fumadocs` | This docs site |
+
+## Smart Contracts
+
+Located in `contracts/sources/`:
+
+### `dao_governance.move`
+
+- `register_member` — enroll a wallet as a DAO member
+- `submit_contribution(contract_addr, contribution_id, dataset_id, shelby_account, shelby_blob_name, data_hash)` — anchor a contribution on-chain
+- `cast_vote(contract_addr, contribution_id, decision)` — vote: `0`=approve, `1`=reject, `2`=improve
+- `finalize_contribution(contract_addr, contribution_id)` — callable by anyone after the 48-hour window; transitions status and credits weight
+
+### `revenue_splitter.move`
+
+- `anchor_receipt(contract_addr, dataset_id, shelby_receipt_hash, amount)` — record a dataset read event
+- `distribute_revenue(contract_addr, dataset_id, shelby_receipt_hash, amount, contributor_addrs, contributor_weights, curator_addrs, curator_powers)` — split payment on-chain
+
+## Database Schema
+
+Three core tables in `packages/db/src/schema.ts`:
+
+- **`contributions`** — `id`, `datasetId`, `contributorAddress`, `shelbyAccount`, `shelbyBlobName`, `dataHash`, `status` (`pending`/`approved`/`rejected`), `weight`, `aptosTxHash`
+- **`votes`** — `id`, `contributionId`, `voterAddress`, `decision`, `votingPower`, `reason`, `aptosTxHash`
+- **`receipts`** — `id`, `datasetId`, `readerAddress`, `shelbyReceiptHash`, `aptosTxHash`, `amount`, `distributed`
+- **`members`** — `address`, `votingPower`, `approvedContributions`
+- **`datasets`** — `id`, `name`, `description`, `ownerAddress`
+
+## Auth
+
+Better Auth with a custom `aptosWalletPlugin`:
+
+1. Client requests a nonce via `GET /api/auth/nonce`
+2. Wallet signs the nonce message
+3. Client submits signature to `POST /api/auth/verify`
+4. Server issues a session cookie
+
+Protected API endpoints read `ctx.session.walletAddress` — no need to pass addresses as inputs.

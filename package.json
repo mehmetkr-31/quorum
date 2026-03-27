@@ -16,12 +16,21 @@
     "format": "biome format . --write",
     "seed": "tsx seed.ts",
     "setup": "bash setup.sh",
-    "test": "turbo test"
+    "test": "turbo test",
+    "prepare": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm lint-staged"
+  },
+  "lint-staged": {
+    "**/*.{ts,tsx,js,jsx,json,css,astro}": "biome check --write --no-errors-on-unmatched"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.0",
     "@types/node": "catalog:",
+    "lint-staged": "^16.4.0",
     "playwright": "1.58.2",
+    "simple-git-hooks": "^2.13.1",
     "tsx": "^4.21.0",
     "turbo": "^2.8.12",
     "typescript": "^5.0.0"

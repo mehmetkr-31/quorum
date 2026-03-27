@@ -1,0 +1,179 @@
+---
+title: API Reference
+description: oRPC endpoints exposed by the Quorum backend
+---
+
+# API Reference
+
+The Quorum backend exposes a type-safe [oRPC](https://orpc.unnoq.com) API. All procedures are available at `/rpc`.
+
+Use the oRPC client in the web app (`apps/web/src/utils/orpc.ts`) or call procedures via HTTP.
+
+## Auth
+
+`protectedProcedure` endpoints require an active session cookie. Authenticate via `POST /api/auth/verify` with a wallet signature.
+
+---
+
+## `contribution`
+
+### `contribution.submit` — protected
+
+Upload data and register a contribution.
+
+**Input:**
+```ts
+{
+  datasetId: string
+  shelbyAccount: string      // optional, server auto-fills
+  data: string               // base64-encoded file content
+  contentType?: string       // default: "application/octet-stream"
+}
+```
+
+**Returns:**
+```ts
+{ id: string; shelbyAccount: string; shelbyBlobName: string; dataHash: string }
+```
+
+---
+
+### `contribution.confirmOnChain` — public
+
+Record the Aptos transaction hash after calling `submit_contribution` on-chain.
+
+**Input:** `{ id: string; aptosTxHash: string }`
+
+---
+
+### `contribution.list` — public
+
+List contributions with optional filters.
+
+**Input (optional):**
+```ts
+{
+  status?: "pending" | "approved" | "rejected"
+  contributorAddress?: string
+  limit?: number   // default 50
+}
+```
+
+---
+
+### `contribution.listMine` — protected
+
+Returns all contributions by the authenticated wallet.
+
+**Input (optional):** `{ limit?: number }`
+
+---
+
+### `contribution.getContent` — public
+
+Fetch the raw blob content from Shelby Protocol.
+
+**Input:** `{ id: string }`
+
+**Returns:** `{ data: string; contentType: string }` — data is base64-encoded
+
+---
+
+## `vote`
+
+### `vote.cast` — protected
+
+Cast a vote on a contribution.
+
+**Input:**
+```ts
+{
+  contributionId: string
+  decision: "approve" | "reject" | "improve"
+  reason?: string
+  aptosTxHash: string
+}
+```
+
+---
+
+### `vote.list` — public
+
+List votes, optionally filtered by contribution.
+
+**Input (optional):** `{ contributionId?: string; limit?: number }`
+
+---
+
+## `dataset`
+
+### `dataset.create` — protected
+
+Create a new dataset.
+
+**Input:** `{ name: string; description?: string }`
+
+**Returns:** `{ id: string }`
+
+---
+
+### `dataset.list` — public
+
+List all datasets with contribution counts and weights.
+
+---
+
+## `revenue`
+
+### `revenue.anchorReceipt` — public
+
+Record a Shelby receipt for a dataset read event.
+
+**Input:**
+```ts
+{
+  datasetId: string
+  readerAddress: string
+  shelbyReceiptHash: string
+  aptosTxHash: string
+  amount: number
+}
+```
+
+---
+
+### `revenue.listReceipts` — public
+
+List receipts, optionally filtered by distribution status.
+
+**Input (optional):** `{ distributed?: boolean; limit?: number }`
+
+---
+
+### `revenue.distribute` — protected
+
+Trigger on-chain revenue distribution for a receipt. Uses the server-side Aptos signer (`APTOS_PRIVATE_KEY`).
+
+**Input:** `{ receiptId: string }`
+
+**Returns:** `{ aptosTxHash: string }`
+
+---
+
+### `revenue.getEarnings` — public
+
+Get earnings summary for a contributor address.
+
+**Input:** `{ contributorAddress: string }`
+
+**Returns:** `{ approvedContributions: number; totalWeight: number }`
+
+---
+
+## `member`
+
+### `member.sync` — public
+
+Sync on-chain voting power from Aptos to the local database.
+
+**Input:** `{ address: string }`

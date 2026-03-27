@@ -1,0 +1,85 @@
+---
+title: Contributing Data
+description: How to submit data contributions to Quorum datasets
+---
+
+# Contributing Data
+
+Contributors upload data files to datasets. Each contribution is stored on Shelby Protocol and anchored to Aptos. DAO members vote on quality; approved contributions earn weight that determines revenue share.
+
+## Step-by-Step
+
+### 1. Connect Wallet
+
+Visit the Quorum web app and connect your Aptos wallet (Petra, Martian, etc.). You must authenticate to submit contributions.
+
+### 2. Register as DAO Member
+
+If this is your first time, call `register_member` on-chain. This creates your `Member` resource with 1 voting power.
+
+From the SDK:
+```typescript
+const txHash = await client.registerMember(signer)
+```
+
+### 3. Submit a Contribution
+
+Use the `/contribute` page or the API directly:
+
+```typescript
+// Via oRPC client
+const result = await orpc.contribution.submit.mutate({
+  datasetId: "your-dataset-id",
+  shelbyAccount: "shelby://your-account", // optional, auto-filled by server
+  data: btoa("your raw data"),             // base64 encoded
+  contentType: "text/plain",
+})
+
+// result: { id, shelbyAccount, shelbyBlobName, dataHash }
+```
+
+Then anchor it on Aptos:
+```typescript
+const txHash = await client.submitContribution(
+  signer,
+  result.id,
+  datasetId,
+  result.shelbyAccount,
+  result.shelbyBlobName,
+  result.dataHash,
+)
+
+// Confirm the tx hash in the database
+await orpc.contribution.confirmOnChain.mutate({ id: result.id, aptosTxHash: txHash })
+```
+
+### 4. Wait for Voting
+
+The DAO votes over a 48-hour window. Members cast votes with decisions:
+
+| Decision | Code | Meaning |
+|---|---|---|
+| Approve | `0` | High quality, accept as-is |
+| Reject | `1` | Does not meet quality bar |
+| Improve | `2` | Needs revision before approval |
+
+### 5. Finalization
+
+After 48 hours, anyone can call `finalize_contribution`. If the contribution received enough approve votes (weighted by voting power), it transitions to `approved` and the contributor gains weight.
+
+## Voting Power
+
+Each DAO member starts with `1` voting power. Voting power grows with approved contributions (see governance rules in `dao_governance.move`).
+
+## Revenue Share
+
+When AI systems read datasets via Shelby Protocol:
+
+1. Shelby generates a cryptographic receipt
+2. The receipt is anchored to Aptos via `anchor_receipt`
+3. The server calls `distribute_revenue`, which splits the payment:
+   - **70%** to contributors, proportional to their weight in the dataset
+   - **20%** to curators (DAO members), proportional to voting power
+   - **10%** to treasury
+
+Track your earnings on the `/earnings` page.

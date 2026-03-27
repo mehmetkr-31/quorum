@@ -1,0 +1,110 @@
+---
+title: MCP Server
+description: Use Quorum data inside AI assistants via the Model Context Protocol
+---
+
+# MCP Server
+
+The `@quorum/mcp` package exposes a [Model Context Protocol](https://modelcontextprotocol.io) server so AI assistants (Claude, Cursor, etc.) can query Quorum data directly.
+
+## Installation
+
+Add to your MCP client config:
+
+```json
+{
+  "mcpServers": {
+    "quorum": {
+      "command": "npx",
+      "args": ["@quorum/mcp"],
+      "env": {
+        "QUORUM_API_URL": "http://localhost:3000"
+      }
+    }
+  }
+}
+```
+
+## Available Tools
+
+### `list_datasets`
+
+List all Quorum datasets with contribution counts and weights.
+
+```
+No parameters required
+```
+
+---
+
+### `list_contributions`
+
+List contributions with optional filters.
+
+**Parameters:**
+- `status` (optional): `"pending"` | `"approved"` | `"rejected"`
+- `datasetId` (optional): filter by dataset
+- `limit` (optional): max results (default 50)
+
+---
+
+### `get_contribution_content`
+
+Fetch the raw content of a specific contribution from Shelby Protocol.
+
+**Parameters:**
+- `id` (required): contribution ID
+
+---
+
+### `export_dataset`
+
+Export all approved contributions for a dataset as a structured JSON array, ready for ML training pipelines.
+
+**Parameters:**
+- `datasetId` (required): dataset ID
+
+---
+
+### `get_governance_stats`
+
+Get DAO governance statistics: total members, pending contributions, approval rates.
+
+```
+No parameters required
+```
+
+---
+
+### `get_leaderboard`
+
+Top contributors ranked by approved weight.
+
+**Parameters:**
+- `limit` (optional): number of results (default 10)
+
+---
+
+### `list_receipts`
+
+List revenue receipts with distribution status.
+
+**Parameters:**
+- `distributed` (optional): filter by distribution status
+- `limit` (optional): max results (default 50)
+
+## Example Usage (Claude Desktop)
+
+Once configured, ask Claude:
+
+> "Show me the top contributors in Quorum and how much weight they have"
+
+> "Export the medical-qa dataset for fine-tuning"
+
+> "What's the current governance status — any pending contributions?"
+
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `QUORUM_API_URL` | Yes | Base URL of the Quorum API server |

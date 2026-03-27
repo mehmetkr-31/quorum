@@ -1,11 +1,37 @@
-# Quorum Documentation
+---
+title: Introduction
+description: Quorum — community-governed AI training dataset DAO
+---
 
-Welcome to the Quorum DAO documentation.
+# Quorum
 
-## Overview
-Quorum is a community-governed AI training dataset DAO.
+Quorum is a community-governed DAO for AI training datasets. Contributors submit data, DAO members vote on quality, and revenue from dataset access is automatically split among participants.
 
-## Architecture
-- **Aptos**: Governance & Voting
-- **Shelby**: Data Storage
-- **oRPC**: Type-safe API
+## How it works
+
+1. **Submit** — Contributors upload data files via the web app or API. Files are stored on Shelby Protocol; metadata and a cryptographic hash are anchored to Aptos.
+
+2. **Vote** — DAO members review submissions and vote (approve / reject / improve) over a 48-hour window. Voting power is weighted by past approved contributions.
+
+3. **Finalize** — After the voting window, any wallet can finalize the contribution. Approved contributions credit weight to the contributor.
+
+4. **Earn** — When AI systems read datasets via Shelby Protocol, cryptographic receipts are generated. Revenue is split on-chain: **70%** contributors · **20%** curators · **10%** treasury.
+
+## Quick links
+
+- [Architecture](/docs/architecture) — how the components fit together
+- [Contributing Data](/docs/contributing) — step-by-step guide for contributors
+- [API Reference](/docs/api) — oRPC endpoints
+- [MCP Server](/docs/mcp) — use Quorum data inside AI assistants
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | TanStack Start + TanStack Router |
+| API | oRPC (type-safe, no codegen) |
+| Auth | Better Auth + Aptos wallet plugin |
+| Database | Drizzle ORM → SQLite (local) / Turso (prod) |
+| Blockchain | Aptos (Move smart contracts) |
+| Storage | Shelby Protocol |
+| AI integration | MCP (Model Context Protocol) |
