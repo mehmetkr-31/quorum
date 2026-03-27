@@ -1,7 +1,7 @@
 import { votes } from "@quorum/db"
 import { desc } from "drizzle-orm"
 import { z } from "zod"
-import { protectedProcedure, publicProcedure } from "../index"
+import { publicProcedure } from "../index"
 
 export const voteRouter = {
   listHistory: publicProcedure
