@@ -122,10 +122,19 @@ function aptosWalletPlugin(): BetterAuthPlugin {
               message: new TextEncoder().encode(message),
               signature: sig,
             })
-            if (!valid) throw new Error("bad sig")
-          } catch {
+            if (!valid) {
+              throw APIError.fromStatus("UNAUTHORIZED", {
+                message: "Geçersiz imza",
+                status: 401,
+              })
+            }
+          } catch (e) {
+            // APIError'ı yeniden fırlat
+            if (e instanceof APIError) throw e
+            // Ed25519 dışı format varsa (multikey vb.) güvenlik açıklığı olmaması için reddet
             throw APIError.fromStatus("UNAUTHORIZED", {
-              message: "Geçersiz imza",
+              message:
+                "Desteklenmeyen hesap tipi veya geçersiz imza formatı. Lütfen standart (Ed25519) bir hesap kullanın.",
               status: 401,
             })
           }

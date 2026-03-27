@@ -18,6 +18,7 @@ export async function walletSignIn(params: {
     body: JSON.stringify({ address }),
     credentials: "include",
   })
+  console.debug("[Auth] nonce:", nonceRes.status)
   if (!nonceRes.ok) return false
   const { nonce } = (await nonceRes.json()) as { nonce: string }
 
@@ -27,8 +28,15 @@ export async function walletSignIn(params: {
   try {
     const result = await signMessage({ message, nonce })
     signature = typeof result.signature === "string" ? result.signature : String(result.signature)
-  } catch {
-    return false
+    console.debug(
+      "[Auth] signature type:",
+      typeof result.signature,
+      "value:",
+      signature.slice(0, 30),
+    )
+  } catch (error) {
+    console.error("[Auth] signMessage failed:", error)
+    throw error
   }
 
   // 3. Sunucuda doğrula
@@ -38,8 +46,15 @@ export async function walletSignIn(params: {
     body: JSON.stringify({ address, publicKey, signature, message }),
     credentials: "include",
   })
+  console.debug("[Auth] verify:", verifyRes.status)
 
-  return verifyRes.ok
+  if (!verifyRes.ok) {
+    const errData = await verifyRes.json().catch(() => null)
+    if (errData?.message) throw new Error(errData.message)
+    return false
+  }
+
+  return true
 }
 
 export async function walletSignOut(): Promise<void> {

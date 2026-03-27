@@ -11,7 +11,7 @@ export const Route = createFileRoute("/datasets/")({
 })
 
 function DatasetsPage() {
-  const { connected } = useWallet()
+  const { connected, account } = useWallet()
   const queryClient = useQueryClient()
   const { data: datasets, isLoading } = useQuery(orpc.dataset.list.queryOptions())
   const createMutation = useMutation(orpc.dataset.create.mutationOptions())
@@ -27,6 +27,7 @@ function DatasetsPage() {
       await createMutation.mutateAsync({
         name: name.trim(),
         description: description.trim() || undefined,
+        ownerAddress: account?.address.toString() ?? "",
       })
       toast.success("Dataset created!")
       setName("")

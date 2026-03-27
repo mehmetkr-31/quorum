@@ -98,6 +98,18 @@ function VotePage() {
     }),
   )
   const castMutation = useMutation(orpc.vote.cast.mutationOptions())
+  const { data: voteHistory } = useQuery(orpc.vote.listHistory.queryOptions())
+  const [votedIds, setVotedIds] = useState<Set<string>>(new Set())
+  const [myVotes, setMyVotes] = useState<Map<string, string>>(new Map())
+
+  // Sayfa yüklenince mevcut oyları yükle
+  const addrStr = account?.address?.toString()
+  useEffect(() => {
+    if (!voteHistory || !addrStr) return
+    const myVoteList = voteHistory.filter((v) => v.voterAddress === addrStr)
+    setVotedIds(new Set(myVoteList.map((v) => v.contributionId)))
+    setMyVotes(new Map(myVoteList.map((v) => [v.contributionId, v.decision])))
+  }, [voteHistory, addrStr])
 
   const [isMember, setIsMember] = useState<boolean | null>(null)
   const [isJoining, setIsJoining] = useState(false)
@@ -153,7 +165,12 @@ function VotePage() {
     if (!connected || !account) return
 
     if (!isMember) {
-      toast.error("You must join the DAO first to vote!")
+      toast.error("Oy vermek için önce DAO'ya katılmalısınız.")
+      return
+    }
+
+    if (votedIds.has(contributionId)) {
+      toast.error("Bu katkıya zaten oy verdiniz.")
       return
     }
 
@@ -178,26 +195,28 @@ function VotePage() {
 
       await castMutation.mutateAsync({
         contributionId,
+        voterAddress: account.address.toString(),
         decision,
         aptosTxHash: result.hash,
       })
 
-      toast.success(`Vote cast: ${decision}`)
+      setVotedIds((prev) => new Set(prev).add(contributionId))
+      toast.success(`Oy verildi: ${decision}`)
       refetch()
     } catch (e: unknown) {
       console.error("Vote Error:", e)
-      const errorMsg = (e as Error).message || ""
+      const msg = (e as Error).message || String(e) || ""
 
-      if (errorMsg.includes("0x1")) {
-        toast.error("You are not a DAO Member. Please join first.")
-      } else if (errorMsg.includes("0x2")) {
-        toast.error("You have already voted on this contribution!")
-      } else if (errorMsg.includes("0x4")) {
-        toast.error("Voting window has closed for this contribution. It should be finalized.")
-      } else if (errorMsg.includes("0x5")) {
-        toast.error("This contribution is already finalized.")
+      if (msg.includes("E_ALREADY_VOTED")) {
+        toast.error("Bu katkıya zaten oy verdiniz.")
+      } else if (msg.includes("E_NOT_MEMBER")) {
+        toast.error("Oy vermek için önce DAO'ya katılmalısınız.")
+      } else if (msg.includes("E_VOTING_CLOSED")) {
+        toast.error("Bu katkı için oylama süresi kapandı.")
+      } else if (msg.includes("E_ALREADY_FINALIZED")) {
+        toast.error("Bu katkı zaten sonuçlandırıldı.")
       } else {
-        toast.error(`Vote failed: ${errorMsg.slice(0, 50) || "Unknown error"}`)
+        toast.error(`Oy verilemedi: ${msg.slice(0, 80) || "Bilinmeyen hata"}`)
       }
     }
   }
@@ -305,13 +324,17 @@ function VotePage() {
                             onClick={() => handleVote(c.id, "approve")}
                             type="button"
                             disabled={
-                              !isMember || c.contributorAddress === account?.address?.toString()
+                              !isMember ||
+                              c.contributorAddress === account?.address?.toString() ||
+                              votedIds.has(c.id)
                             }
                             className="px-4 py-2 bg-teal-600 hover:bg-teal-500 rounded-lg text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                             title={
-                              c.contributorAddress === account?.address?.toString()
-                                ? "You cannot vote on your own contribution"
-                                : ""
+                              votedIds.has(c.id)
+                                ? "Bu katkıya zaten oy verdiniz"
+                                : c.contributorAddress === account?.address?.toString()
+                                  ? "Kendi katkınıza oy veremezsiniz"
+                                  : ""
                             }
                           >
                             Approve
@@ -320,17 +343,38 @@ function VotePage() {
                             onClick={() => handleVote(c.id, "reject")}
                             type="button"
                             disabled={
-                              !isMember || c.contributorAddress === account?.address?.toString()
+                              !isMember ||
+                              c.contributorAddress === account?.address?.toString() ||
+                              votedIds.has(c.id)
                             }
                             className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                             title={
-                              c.contributorAddress === account?.address?.toString()
-                                ? "You cannot vote on your own contribution"
-                                : ""
+                              votedIds.has(c.id)
+                                ? "Bu katkıya zaten oy verdiniz"
+                                : c.contributorAddress === account?.address?.toString()
+                                  ? "Kendi katkınıza oy veremezsiniz"
+                                  : ""
                             }
                           >
                             Reject
                           </button>
+                          {votedIds.has(c.id) && (
+                            <span
+                              className={`px-3 py-2 rounded-lg text-sm font-bold ${
+                                myVotes.get(c.id) === "approve"
+                                  ? "bg-teal-900 text-teal-300"
+                                  : myVotes.get(c.id) === "reject"
+                                    ? "bg-red-900 text-red-300"
+                                    : "bg-neutral-700 text-neutral-300"
+                              }`}
+                            >
+                              {myVotes.get(c.id) === "approve"
+                                ? "✓ Onayladınız"
+                                : myVotes.get(c.id) === "reject"
+                                  ? "✗ Reddettiniz"
+                                  : "Oyladınız"}
+                            </span>
+                          )}
                         </>
                       )}
                     </div>

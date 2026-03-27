@@ -35,11 +35,8 @@ export function WalletButton() {
 }
 
 function WalletButtonClient() {
-  const { connected, account, disconnect, connect, wallets, signMessage } = useWallet()
+  const { connected, account, disconnect, connect, wallets } = useWallet()
   const [isMember, setIsMember] = useState<boolean | null>(null)
-  const [isAuthenticating, setIsAuthenticating] = useState(false)
-  // Auth bir kez çalışsın — address string'i değiştiğinde sıfırlanır
-  const authDoneRef = useRef<string | null>(null)
 
   const addrStr = account?.address?.toString() ?? null
 
@@ -69,48 +66,7 @@ function WalletButtonClient() {
     }
   }, [connected, addrStr])
 
-  useEffect(() => {
-    // Aynı adres için tekrar çalışmasın
-    if (!connected || !addrStr || !signMessage) {
-      if (!connected) authDoneRef.current = null
-      return
-    }
-    if (authDoneRef.current === addrStr) return
-    authDoneRef.current = addrStr
-
-    async function authenticate() {
-      if (!account || !addrStr) return
-      setIsAuthenticating(true)
-      try {
-        const pubKey =
-          typeof account.publicKey === "string"
-            ? account.publicKey
-            : (account.publicKey?.toString() ?? "")
-
-        const ok = await walletSignIn({
-          address: addrStr,
-          publicKey: pubKey,
-          signMessage: async ({ message, nonce }) => {
-            const result = await signMessage?.({ message, nonce })
-            const sig =
-              typeof result.signature === "string"
-                ? result.signature
-                : ((result.signature as { toString(): string })?.toString() ?? "")
-            return { signature: sig }
-          },
-        })
-
-        if (!ok) toast.error("Sunucu oturumu başlatılamadı.")
-      } catch (e) {
-        console.error("Auth error", e)
-        authDoneRef.current = null // hata olursa tekrar denenebilir
-      } finally {
-        setIsAuthenticating(false)
-      }
-    }
-
-    authenticate()
-  }, [connected, addrStr])
+  // Session auth devre dışı — wallet adapter multikey desteği gelene kadar ertelendi
 
   const handleConnect = async () => {
     console.log(
@@ -150,9 +106,7 @@ function WalletButtonClient() {
             Not Joined
           </span>
         )}
-        {isAuthenticating && (
-          <span className="text-xs text-neutral-500">Kimlik doğrulanıyor...</span>
-        )}
+
         <span className="text-xs font-mono text-indigo-400 bg-indigo-400/10 px-2 py-1 rounded">
           {addr.slice(0, 6)}...{addr.slice(-4)}
         </span>

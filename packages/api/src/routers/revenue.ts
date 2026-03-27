@@ -75,7 +75,7 @@ export const revenueRouter = {
       return query.limit(input?.limit ?? 50)
     }),
 
-  distribute: protectedProcedure
+  distribute: publicProcedure
     .input(z.object({ receiptId: z.string() }))
     .handler(async ({ input, context: ctx }) => {
       const [receipt] = await ctx.db

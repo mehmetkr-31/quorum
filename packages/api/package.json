@@ -18,7 +18,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@aptos-labs/ts-sdk": "^1.33.1",
+    "@aptos-labs/ts-sdk": "^6.3.1",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
@@ -31,12 +31,12 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@libsql/client": "catalog:",
+    "@types/better-sqlite3": "^7.6.0",
     "@types/node": "catalog:",
+    "better-sqlite3": "^11.0.0",
     "dotenv": "catalog:",
     "tsx": "^4.21.0",
-    "vitest": "^2.0.0",
-    "@libsql/client": "catalog:",
-    "better-sqlite3": "^11.0.0",
-    "@types/better-sqlite3": "^7.6.0"
+    "vitest": "^2.0.0"
   }
 }

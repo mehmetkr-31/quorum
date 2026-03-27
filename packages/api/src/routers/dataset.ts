@@ -4,11 +4,12 @@ import { z } from "zod"
 import { protectedProcedure, publicProcedure } from "../index"
 
 export const datasetRouter = {
-  create: protectedProcedure
+  create: publicProcedure
     .input(
       z.object({
         name: z.string().min(1),
         description: z.string().optional(),
+        ownerAddress: z.string(),
       }),
     )
     .handler(async ({ input, context: ctx }) => {
@@ -17,7 +18,7 @@ export const datasetRouter = {
         id,
         name: input.name,
         description: input.description,
-        ownerAddress: ctx.session.walletAddress,
+        ownerAddress: input.ownerAddress,
         createdAt: new Date(),
       })
       return { id }

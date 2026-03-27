@@ -4,11 +4,12 @@ import { z } from "zod"
 import { protectedProcedure, publicProcedure } from "../index"
 
 export const contributionRouter = {
-  submit: protectedProcedure
+  submit: publicProcedure
     .input(
       z.object({
         datasetId: z.string(),
         shelbyAccount: z.string(),
+        contributorAddress: z.string(),
         data: z.string(), // base64
         contentType: z.string().default("application/octet-stream").optional(),
       }),
@@ -21,7 +22,7 @@ export const contributionRouter = {
       await ctx.db.insert(contributions).values({
         id,
         datasetId: input.datasetId,
-        contributorAddress: ctx.session.walletAddress,
+        contributorAddress: input.contributorAddress,
         shelbyAccount: input.shelbyAccount || res.shelbyAccount,
         shelbyBlobName: res.blobName,
         dataHash: res.dataHash,

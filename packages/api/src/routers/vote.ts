@@ -30,10 +30,11 @@ export const voteRouter = {
       return rows
     }),
 
-  cast: protectedProcedure
+  cast: publicProcedure
     .input(
       z.object({
         contributionId: z.string(),
+        voterAddress: z.string(),
         decision: z.enum(["approve", "reject", "improve"]),
         reason: z.string().optional(),
         aptosTxHash: z.string(),
@@ -41,12 +42,12 @@ export const voteRouter = {
     )
     .handler(async ({ input, context: ctx }) => {
       const id = crypto.randomUUID()
-      const votingPower = await ctx.aptosClient.getMemberVotingPower(ctx.session.walletAddress)
+      const votingPower = await ctx.aptosClient.getMemberVotingPower(input.voterAddress)
 
       await ctx.db.insert(votes).values({
         id,
         contributionId: input.contributionId,
-        voterAddress: ctx.session.walletAddress,
+        voterAddress: input.voterAddress,
         decision: input.decision,
         reason: input.reason,
         votingPower,
