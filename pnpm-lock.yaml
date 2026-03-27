@@ -62,6 +62,9 @@ importers:
       '@biomejs/biome':
         specifier: ^2.2.0
         version: 2.4.8
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.19.15
       playwright:
         specifier: 1.58.2
         version: 1.58.2
@@ -4233,6 +4236,7 @@ packages:
 
   libsql@0.5.28:
     resolution: {integrity: sha512-wKqx9FgtPcKHdPfR/Kfm0gejsnbuf8zV+ESPmltFvsq5uXwdeN9fsWn611DmqrdXj1e94NkARcMA2f1syiAqOg==}
+    cpu: [x64, arm64, wasm32, arm]
     os: [darwin, linux, win32]
 
   lightningcss-android-arm64@1.32.0:
