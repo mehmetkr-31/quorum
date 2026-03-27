@@ -12,7 +12,6 @@ build
 dist
 .output
 .vinxi
-routeTree.gen.ts
 
 # cache
 .turbo
