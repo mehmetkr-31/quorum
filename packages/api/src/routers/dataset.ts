@@ -9,7 +9,6 @@ export const datasetRouter = {
       z.object({
         name: z.string().min(1),
         description: z.string().optional(),
-        ownerAddress: z.string(),
       }),
     )
     .handler(async ({ input, context: ctx }) => {
@@ -18,7 +17,7 @@ export const datasetRouter = {
         id,
         name: input.name,
         description: input.description,
-        ownerAddress: input.ownerAddress,
+        ownerAddress: ctx.session.walletAddress,
         createdAt: new Date(),
       })
       return { id }

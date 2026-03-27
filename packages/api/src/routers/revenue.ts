@@ -1,7 +1,7 @@
 import { contributions, members, receipts } from "@quorum/db"
 import { and, eq, sql } from "drizzle-orm"
 import { z } from "zod"
-import { publicProcedure } from "../index"
+import { protectedProcedure, publicProcedure } from "../index"
 
 export const revenueRouter = {
   anchorReceipt: publicProcedure
@@ -73,5 +73,58 @@ export const revenueRouter = {
         return query.where(eq(receipts.distributed, input.distributed)).limit(input?.limit ?? 50)
       }
       return query.limit(input?.limit ?? 50)
+    }),
+
+  distribute: protectedProcedure
+    .input(z.object({ receiptId: z.string() }))
+    .handler(async ({ input, context: ctx }) => {
+      const [receipt] = await ctx.db
+        .select()
+        .from(receipts)
+        .where(eq(receipts.id, input.receiptId))
+        .limit(1)
+
+      if (!receipt) throw new Error("Receipt not found")
+      if (receipt.distributed) throw new Error("Already distributed")
+
+      // Gather contributors for this dataset (approved only)
+      const contributorRows = await ctx.db
+        .select({
+          address: contributions.contributorAddress,
+          weight: sql<number>`sum(${contributions.weight})`.mapWith(Number),
+        })
+        .from(contributions)
+        .where(
+          and(
+            eq(contributions.datasetId, receipt.datasetId),
+            eq(contributions.status, "approved"),
+          ),
+        )
+        .groupBy(contributions.contributorAddress)
+
+      // Gather curators (all DAO members)
+      const curatorRows = await ctx.db.select().from(members)
+
+      const contributorAddresses = contributorRows.map((r) => r.address)
+      const contributorWeights = contributorRows.map((r) => BigInt(Math.round(r.weight * 100)))
+      const curatorAddresses = curatorRows.map((r) => r.address)
+      const curatorPowers = curatorRows.map((r) => BigInt(r.votingPower))
+
+      const aptosTxHash = await ctx.aptosClient.distributeRevenue(
+        receipt.datasetId,
+        receipt.shelbyReceiptHash,
+        BigInt(receipt.amount),
+        contributorAddresses,
+        contributorWeights,
+        curatorAddresses,
+        curatorPowers,
+      )
+
+      await ctx.db
+        .update(receipts)
+        .set({ distributed: true })
+        .where(eq(receipts.id, input.receiptId))
+
+      return { aptosTxHash }
     }),
 }

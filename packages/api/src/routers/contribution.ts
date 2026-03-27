@@ -76,6 +76,22 @@ export const contributionRouter = {
       }
     }),
 
+  listMine: protectedProcedure
+    .input(
+      z
+        .object({
+          limit: z.number().default(50).optional(),
+        })
+        .optional(),
+    )
+    .handler(async ({ input, context: ctx }) => {
+      return ctx.db
+        .select()
+        .from(contributions)
+        .where(eq(contributions.contributorAddress, ctx.session.walletAddress))
+        .limit(input?.limit ?? 50)
+    }),
+
   list: publicProcedure
     .input(
       z

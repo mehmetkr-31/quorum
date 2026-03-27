@@ -1,7 +1,8 @@
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { formatDistanceToNow } from "date-fns"
+import { toast } from "sonner"
 import { orpc } from "../../utils/orpc"
 
 export const Route = createFileRoute("/earnings/")({
@@ -10,6 +11,8 @@ export const Route = createFileRoute("/earnings/")({
 
 function EarningsPage() {
   const { connected, account } = useWallet()
+  const queryClient = useQueryClient()
+
   const { data: earnings } = useQuery({
     ...orpc.revenue.getEarnings.queryOptions({
       input: { contributorAddress: account?.address?.toString() ?? "" },
@@ -17,9 +20,26 @@ function EarningsPage() {
     enabled: !!connected && !!account,
   })
 
-  const { data: receipts, isLoading: receiptsLoading } = useQuery({
-    ...orpc.revenue.listReceipts.queryOptions(),
+  const { data: receipts, isLoading: receiptsLoading } = useQuery(
+    orpc.revenue.listReceipts.queryOptions(),
+  )
+
+  const { data: myContributions, isLoading: contribLoading } = useQuery({
+    ...orpc.contribution.listMine.queryOptions(),
+    enabled: !!connected,
   })
+
+  const distributeMutation = useMutation(orpc.revenue.distribute.mutationOptions())
+
+  async function handleDistribute(receiptId: string) {
+    try {
+      const { aptosTxHash } = await distributeMutation.mutateAsync({ receiptId })
+      toast.success(`Revenue distributed! Tx: ${aptosTxHash.slice(0, 12)}...`)
+      queryClient.invalidateQueries({ queryKey: orpc.revenue.listReceipts.queryOptions().queryKey })
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Distribution failed")
+    }
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-16">
@@ -30,7 +50,7 @@ function EarningsPage() {
         </div>
       ) : (
         <div className="space-y-12">
-          {/* Earnings Summary Cards */}
+          {/* Earnings Summary */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="p-8 rounded-3xl bg-neutral-900 border border-neutral-800 shadow-[0_0_30px_rgba(79,70,229,0.1)]">
               <p className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-2">
@@ -48,7 +68,56 @@ function EarningsPage() {
             </div>
           </div>
 
-          {/* Platform Receipts History */}
+          {/* My Contributions */}
+          <div className="pt-8 border-t border-neutral-800/50">
+            <h2 className="text-2xl font-bold mb-6">My Contributions</h2>
+            {contribLoading ? (
+              <div className="animate-pulse space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-14 bg-neutral-900 rounded-xl" />
+                ))}
+              </div>
+            ) : myContributions?.length === 0 ? (
+              <div className="p-10 text-center text-neutral-500 border border-neutral-800 border-dashed rounded-2xl">
+                No contributions yet.
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 overflow-hidden">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-neutral-900/80 text-neutral-400 border-b border-neutral-800">
+                    <tr>
+                      <th className="px-5 py-4 font-bold">ID</th>
+                      <th className="px-5 py-4 font-bold">Dataset</th>
+                      <th className="px-5 py-4 font-bold">Status</th>
+                      <th className="px-5 py-4 font-bold">Weight</th>
+                      <th className="px-5 py-4 font-bold">Submitted</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-800/50">
+                    {myContributions?.map((c) => (
+                      <tr key={c.id} className="hover:bg-neutral-800/30 transition-colors">
+                        <td className="px-5 py-3 font-mono text-xs text-indigo-400/80">
+                          {c.id.slice(0, 8)}...
+                        </td>
+                        <td className="px-5 py-3 text-xs text-neutral-400 font-mono">
+                          {c.datasetId.slice(0, 8)}...
+                        </td>
+                        <td className="px-5 py-3">
+                          <StatusBadge status={c.status} />
+                        </td>
+                        <td className="px-5 py-3 text-neutral-300 font-bold">{c.weight}</td>
+                        <td className="px-5 py-3 text-xs text-neutral-500">
+                          {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Platform Receipts */}
           <div className="pt-8 border-t border-neutral-800/50">
             <h2 className="text-2xl font-bold mb-3">Platform Data Reads (Receipts)</h2>
             <p className="text-sm text-neutral-400 mb-8 max-w-3xl">
@@ -65,20 +134,6 @@ function EarningsPage() {
               </div>
             ) : receipts?.length === 0 ? (
               <div className="p-12 text-center text-neutral-500 border border-neutral-800 border-dashed rounded-2xl">
-                <svg
-                  className="w-12 h-12 mx-auto mb-4 opacity-20"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
                 No data reads (receipts) recorded on-chain yet.
               </div>
             ) : (
@@ -90,6 +145,7 @@ function EarningsPage() {
                       <th className="px-6 py-5 font-bold">Reader Address</th>
                       <th className="px-6 py-5 font-bold">Amount (APT)</th>
                       <th className="px-6 py-5 font-bold">Status</th>
+                      <th className="px-6 py-5 font-bold" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-800/50">
@@ -117,6 +173,18 @@ function EarningsPage() {
                             </span>
                           )}
                         </td>
+                        <td className="px-6 py-4 text-right">
+                          {!r.distributed && (
+                            <button
+                              type="button"
+                              onClick={() => handleDistribute(r.id)}
+                              disabled={distributeMutation.isPending}
+                              className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold disabled:opacity-50 transition-all"
+                            >
+                              {distributeMutation.isPending ? "..." : "Distribute"}
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -127,5 +195,25 @@ function EarningsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === "approved")
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-teal-500/10 text-teal-400 border border-teal-500/20 uppercase">
+        Approved
+      </span>
+    )
+  if (status === "rejected")
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20 uppercase">
+        Rejected
+      </span>
+    )
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 uppercase">
+      Pending
+    </span>
   )
 }
