@@ -28,7 +28,8 @@
       "!**/drizzle",
       "!**/.turbo",
       "!**/.aptos",
-      "!**/build"
+      "!**/build",
+      "!apps/fumadocs/.source"
     ]
   },
   "css": {
