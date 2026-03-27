@@ -178,7 +178,6 @@ function VotePage() {
 
       await castMutation.mutateAsync({
         contributionId,
-        voterAddress: account.address.toString(),
         decision,
         aptosTxHash: result.hash,
       })

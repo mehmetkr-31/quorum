@@ -1,14 +1,13 @@
 import { contributions } from "@quorum/db"
 import { and, eq } from "drizzle-orm"
 import { z } from "zod"
-import { publicProcedure } from "../index"
+import { protectedProcedure, publicProcedure } from "../index"
 
 export const contributionRouter = {
-  submit: publicProcedure
+  submit: protectedProcedure
     .input(
       z.object({
         datasetId: z.string(),
-        contributorAddress: z.string(),
         shelbyAccount: z.string(),
         data: z.string(), // base64
         contentType: z.string().default("application/octet-stream").optional(),
@@ -22,7 +21,7 @@ export const contributionRouter = {
       await ctx.db.insert(contributions).values({
         id,
         datasetId: input.datasetId,
-        contributorAddress: input.contributorAddress,
+        contributorAddress: ctx.session.walletAddress,
         shelbyAccount: input.shelbyAccount || res.shelbyAccount,
         shelbyBlobName: res.blobName,
         dataHash: res.dataHash,

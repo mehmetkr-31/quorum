@@ -14,6 +14,7 @@ export interface AptosClientConfig {
   nodeUrl?: string // override for custom networks like Shelbynet
   contractAddress: string
   serverPrivateKey?: string // for server-side signing (revenue distribution)
+  apiKey?: string // Aptos API key to avoid 429 rate limits
 }
 
 export class QuorumAptosClient {
@@ -23,8 +24,8 @@ export class QuorumAptosClient {
 
   constructor(config: AptosClientConfig) {
     const aptosConfig = config.nodeUrl
-      ? new AptosConfig({ network: config.network, fullnode: config.nodeUrl })
-      : new AptosConfig({ network: config.network })
+      ? new AptosConfig({ network: config.network, fullnode: config.nodeUrl, clientConfig: { API_KEY: config.apiKey } })
+      : new AptosConfig({ network: config.network, clientConfig: { API_KEY: config.apiKey } })
 
     this.aptos = new Aptos(aptosConfig)
     this.contractAddress = config.contractAddress

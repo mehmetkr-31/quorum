@@ -132,7 +132,6 @@ function ContributePage() {
 
       const res = await submitMutation.mutateAsync({
         datasetId: selectedDatasetId,
-        contributorAddress: account.address.toString(),
         shelbyAccount,
         data: base64,
         contentType: file.type || "application/octet-stream",

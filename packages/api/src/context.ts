@@ -22,6 +22,7 @@ function getAptosClient(): QuorumAptosClient {
       nodeUrl: env.APTOS_NODE_URL,
       contractAddress: env.QUORUM_CONTRACT_ADDRESS,
       serverPrivateKey: env.APTOS_PRIVATE_KEY,
+      apiKey: env.APTOS_API_KEY,
     })
   }
   return _aptosClient

@@ -11,7 +11,7 @@ describe("contributionRouter", () => {
   let ctx: ReturnType<typeof createMockContext>
 
   const DATASET_ID = "ds-1"
-  const CONTRIBUTOR = "0xcontributor"
+  const CONTRIBUTOR = "0xtest" // mock context walletAddress
 
   beforeEach(async () => {
     const testDb = createTestDb()
@@ -33,7 +33,6 @@ describe("contributionRouter", () => {
       contributionRouter.submit,
       {
         datasetId: DATASET_ID,
-        contributorAddress: CONTRIBUTOR,
         shelbyAccount: "shelby://test",
         data: Buffer.from("hello").toString("base64"),
         contentType: "text/plain",
@@ -55,7 +54,6 @@ describe("contributionRouter", () => {
       contributionRouter.submit,
       {
         datasetId: DATASET_ID,
-        contributorAddress: CONTRIBUTOR,
         shelbyAccount: "shelby://test",
         data: Buffer.from("hello").toString("base64"),
       },
@@ -77,7 +75,6 @@ describe("contributionRouter", () => {
       contributionRouter.submit,
       {
         datasetId: DATASET_ID,
-        contributorAddress: CONTRIBUTOR,
         shelbyAccount: "shelby://test",
         data: Buffer.from("a").toString("base64"),
       },
@@ -87,7 +84,6 @@ describe("contributionRouter", () => {
       contributionRouter.submit,
       {
         datasetId: DATASET_ID,
-        contributorAddress: "0xother",
         shelbyAccount: "shelby://test",
         data: Buffer.from("b").toString("base64"),
       },
@@ -103,7 +99,6 @@ describe("contributionRouter", () => {
       contributionRouter.submit,
       {
         datasetId: DATASET_ID,
-        contributorAddress: CONTRIBUTOR,
         shelbyAccount: "shelby://test",
         data: Buffer.from("x").toString("base64"),
       },
@@ -124,7 +119,6 @@ describe("contributionRouter", () => {
       contributionRouter.submit,
       {
         datasetId: DATASET_ID,
-        contributorAddress: CONTRIBUTOR,
         shelbyAccount: "shelby://test",
         data: Buffer.from("hello").toString("base64"),
       },

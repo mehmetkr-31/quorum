@@ -1,7 +1,7 @@
 import { votes } from "@quorum/db"
 import { desc } from "drizzle-orm"
 import { z } from "zod"
-import { publicProcedure } from "../index"
+import { protectedProcedure, publicProcedure } from "../index"
 
 export const voteRouter = {
   listHistory: publicProcedure
@@ -30,11 +30,10 @@ export const voteRouter = {
       return rows
     }),
 
-  cast: publicProcedure
+  cast: protectedProcedure
     .input(
       z.object({
         contributionId: z.string(),
-        voterAddress: z.string(),
         decision: z.enum(["approve", "reject", "improve"]),
         reason: z.string().optional(),
         aptosTxHash: z.string(),
@@ -42,12 +41,12 @@ export const voteRouter = {
     )
     .handler(async ({ input, context: ctx }) => {
       const id = crypto.randomUUID()
-      const votingPower = await ctx.aptosClient.getMemberVotingPower(input.voterAddress)
+      const votingPower = await ctx.aptosClient.getMemberVotingPower(ctx.session.walletAddress)
 
       await ctx.db.insert(votes).values({
         id,
         contributionId: input.contributionId,
-        voterAddress: input.voterAddress,
+        voterAddress: ctx.session.walletAddress,
         decision: input.decision,
         reason: input.reason,
         votingPower,
