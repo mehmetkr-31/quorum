@@ -79,7 +79,7 @@ function WalletButtonClient() {
     authDoneRef.current = addrStr
 
     async function authenticate() {
-      if (!account) return
+      if (!account || !addrStr) return
       setIsAuthenticating(true)
       try {
         const pubKey =
@@ -88,7 +88,7 @@ function WalletButtonClient() {
             : (account.publicKey?.toString() ?? "")
 
         const ok = await walletSignIn({
-          address: addrStr!,
+          address: addrStr,
           publicKey: pubKey,
           signMessage: async ({ message, nonce }) => {
             const result = await signMessage?.({ message, nonce })

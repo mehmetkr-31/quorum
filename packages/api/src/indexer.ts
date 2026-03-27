@@ -202,7 +202,7 @@ export function startIndexer(intervalMs = 60000) {
 if (
   import.meta.url.startsWith("file:") &&
   process.argv[1] &&
-  import.meta.url.includes(process.argv[1].split("/").pop()!)
+  import.meta.url.includes(process.argv[1].split("/").pop() ?? "")
 ) {
   startIndexer()
 }

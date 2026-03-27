@@ -24,7 +24,11 @@ export class QuorumAptosClient {
 
   constructor(config: AptosClientConfig) {
     const aptosConfig = config.nodeUrl
-      ? new AptosConfig({ network: config.network, fullnode: config.nodeUrl, clientConfig: { API_KEY: config.apiKey } })
+      ? new AptosConfig({
+          network: config.network,
+          fullnode: config.nodeUrl,
+          clientConfig: { API_KEY: config.apiKey },
+        })
       : new AptosConfig({ network: config.network, clientConfig: { API_KEY: config.apiKey } })
 
     this.aptos = new Aptos(aptosConfig)

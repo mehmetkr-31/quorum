@@ -95,10 +95,7 @@ export const revenueRouter = {
         })
         .from(contributions)
         .where(
-          and(
-            eq(contributions.datasetId, receipt.datasetId),
-            eq(contributions.status, "approved"),
-          ),
+          and(eq(contributions.datasetId, receipt.datasetId), eq(contributions.status, "approved")),
         )
         .groupBy(contributions.contributorAddress)
 
