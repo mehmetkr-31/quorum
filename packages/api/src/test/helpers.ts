@@ -63,9 +63,11 @@ export async function setupTestSchema(client: ReturnType<typeof createClient>) {
 
 export function createMockContext(db: ReturnType<typeof createTestDb>["db"]): Context {
   return {
+    // biome-ignore lint/suspicious/noExplicitAny: test mock - drizzle types don't match in-memory client
     db: db as any,
     aptosClient: {
       getMemberVotingPower: async (_address: string) => 10,
+      // biome-ignore lint/suspicious/noExplicitAny: test mock
     } as any,
     shelbyClient: {
       upload: async () => ({
@@ -77,6 +79,7 @@ export function createMockContext(db: ReturnType<typeof createTestDb>["db"]): Co
         data: new TextEncoder().encode("test content"),
         contentType: "text/plain",
       }),
+      // biome-ignore lint/suspicious/noExplicitAny: test mock
     } as any,
     session: {
       id: "test-session",
@@ -88,6 +91,7 @@ export function createMockContext(db: ReturnType<typeof createTestDb>["db"]): Co
 
 /** Bir handler'ı doğrudan çağırmak için yardımcı */
 export async function callHandler<T>(
+  // biome-ignore lint/suspicious/noExplicitAny: handler return type varies per router
   router: { handler: (args: { input: T; context: Context }) => Promise<any> },
   input: T,
   ctx: Context,

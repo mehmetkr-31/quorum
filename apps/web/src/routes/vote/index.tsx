@@ -52,7 +52,7 @@ function ContributionPreview({ id }: { id: string }) {
   if (isText) {
     try {
       textContent = atob(base64Data)
-      if (textContent.length > 800) textContent = textContent.slice(0, 800) + "\n\n... (truncated)"
+      if (textContent.length > 800) textContent = `${textContent.slice(0, 800)}\n\n... (truncated)`
     } catch (_e) {
       textContent = "Failed to decode text content."
     }
@@ -133,7 +133,10 @@ function VotePage() {
         functionArguments: [],
       }
       const result = await signAndSubmitTransaction({
-        data: payload as { function: `${string}::${string}::${string}`; functionArguments: any[] },
+        data: payload as {
+          function: `${string}::${string}::${string}`
+          functionArguments: unknown[]
+        },
       })
       await aptos.waitForTransaction({ transactionHash: result.hash })
       setIsMember(true)
@@ -166,7 +169,10 @@ function VotePage() {
       }
 
       const result = await signAndSubmitTransaction({
-        data: payload as { function: `${string}::${string}::${string}`; functionArguments: any[] },
+        data: payload as {
+          function: `${string}::${string}::${string}`
+          functionArguments: unknown[]
+        },
       })
       await aptos.waitForTransaction({ transactionHash: result.hash })
 
@@ -192,7 +198,7 @@ function VotePage() {
       } else if (errorMsg.includes("0x5")) {
         toast.error("This contribution is already finalized.")
       } else {
-        toast.error("Vote failed: " + (errorMsg.slice(0, 50) || "Unknown error"))
+        toast.error(`Vote failed: ${errorMsg.slice(0, 50) || "Unknown error"}`)
       }
     }
   }
@@ -207,7 +213,10 @@ function VotePage() {
       }
 
       const result = await signAndSubmitTransaction({
-        data: payload as { function: `${string}::${string}::${string}`; functionArguments: any[] },
+        data: payload as {
+          function: `${string}::${string}::${string}`
+          functionArguments: unknown[]
+        },
       })
       await aptos.waitForTransaction({ transactionHash: result.hash })
 
@@ -222,7 +231,7 @@ function VotePage() {
       } else if (errorMsg.includes("0x6")) {
         toast.error("Voting is still open. 48 hours have not passed yet.")
       } else {
-        toast.error("Finalize failed: " + (errorMsg.slice(0, 50) || "Unknown error"))
+        toast.error(`Finalize failed: ${errorMsg.slice(0, 50) || "Unknown error"}`)
       }
     }
   }

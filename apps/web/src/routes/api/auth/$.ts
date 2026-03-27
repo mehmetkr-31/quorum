@@ -12,4 +12,5 @@ export const Route = createFileRoute("/api/auth/$")({
       POST: handle,
     },
   },
+  // biome-ignore lint/suspicious/noExplicitAny: TanStack Start server handlers lack public type
 } as any)

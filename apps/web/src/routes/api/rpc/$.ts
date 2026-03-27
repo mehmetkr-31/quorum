@@ -63,4 +63,5 @@ export const Route = createFileRoute("/api/rpc/$")({
       HEAD: handle,
     },
   },
+  // biome-ignore lint/suspicious/noExplicitAny: TanStack Start server handlers lack public type
 } as any)

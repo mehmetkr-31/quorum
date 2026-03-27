@@ -91,7 +91,7 @@ function WalletButtonClient() {
           address: addrStr!,
           publicKey: pubKey,
           signMessage: async ({ message, nonce }) => {
-            const result = await signMessage!({ message, nonce })
+            const result = await signMessage?.({ message, nonce })
             const sig =
               typeof result.signature === "string"
                 ? result.signature

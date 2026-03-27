@@ -174,7 +174,8 @@ function aptosWalletPlugin(): BetterAuthPlugin {
 
           await setSessionCookie(ctx, {
             session,
-            user: user as any, // better-auth setSessionCookie expectation varies, keeping as any for now but logic above is cleaner
+            // biome-ignore lint/suspicious/noExplicitAny: better-auth setSessionCookie expects internal User type
+            user: user as any,
           })
           return ctx.json({ success: true, user: { id: user.id, walletAddress: address } })
         },

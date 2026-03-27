@@ -7,8 +7,8 @@ try {
     path: "m/44'/637'/0'/0'/0",
     mnemonic: mnemonic,
   })
-  console.log("ADDRESS=" + account.accountAddress.toString())
-  console.log("PRIVATE_KEY=" + account.privateKey.toString())
+  console.log(`ADDRESS=${account.accountAddress.toString()}`)
+  console.log(`PRIVATE_KEY=${account.privateKey.toString()}`)
 } catch (e) {
   console.error("Error:", e)
 }

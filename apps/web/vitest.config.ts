@@ -3,7 +3,7 @@ import tsconfigPaths from "vite-tsconfig-paths"
 import { defineConfig } from "vitest/config"
 
 export default defineConfig({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: Vite plugin types mismatch with vitest's defineConfig
   plugins: [react() as any, tsconfigPaths() as any],
   test: {
     environment: "jsdom",

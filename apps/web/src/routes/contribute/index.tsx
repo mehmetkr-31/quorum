@@ -105,7 +105,10 @@ function ContributePage() {
         functionArguments: [],
       }
       const result = await signAndSubmitTransaction({
-        data: payload as { function: `${string}::${string}::${string}`; functionArguments: any[] },
+        data: payload as {
+          function: `${string}::${string}::${string}`
+          functionArguments: unknown[]
+        },
       })
       await aptos.waitForTransaction({ transactionHash: result.hash })
       setIsMember(true)
@@ -152,7 +155,10 @@ function ContributePage() {
       }
 
       const result = await signAndSubmitTransaction({
-        data: payload as { function: `${string}::${string}::${string}`; functionArguments: any[] },
+        data: payload as {
+          function: `${string}::${string}::${string}`
+          functionArguments: unknown[]
+        },
       })
 
       await confirmMutation.mutateAsync({
