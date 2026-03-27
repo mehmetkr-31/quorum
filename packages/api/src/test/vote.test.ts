@@ -29,6 +29,8 @@ describe("voteRouter", () => {
         datasetId: "ds-1",
         shelbyAccount: "shelby://test",
         data: Buffer.from("test").toString("base64"),
+        contentType: "text/plain",
+        contributorAddress: "0xtest",
       },
       { context: ctx },
     )
@@ -38,7 +40,7 @@ describe("voteRouter", () => {
   it("cast: oyu DB'ye kaydeder ve id döner", async () => {
     const result = await call(
       voteRouter.cast,
-      { contributionId, decision: "approve", aptosTxHash: "0xtx1" },
+      { contributionId, decision: "approve", aptosTxHash: "0xtx1", voterAddress: "0xvoter1" },
       { context: ctx },
     )
 
@@ -55,7 +57,7 @@ describe("voteRouter", () => {
     // cast sadece oyu kaydeder, contribution'a dokunmaz.
     await call(
       voteRouter.cast,
-      { contributionId, decision: "approve", aptosTxHash: "0xtx2" },
+      { contributionId, decision: "approve", aptosTxHash: "0xtx2", voterAddress: "0xvoter1" },
       { context: ctx },
     )
 
@@ -66,17 +68,17 @@ describe("voteRouter", () => {
   it("cast: farklı kararları kaydeder (approve/reject/improve)", async () => {
     await call(
       voteRouter.cast,
-      { contributionId, decision: "approve", aptosTxHash: "0xt1" },
+      { contributionId, decision: "approve", aptosTxHash: "0xt1", voterAddress: "0xvoter1" },
       { context: ctx },
     )
     await call(
       voteRouter.cast,
-      { contributionId, decision: "reject", aptosTxHash: "0xt2" },
+      { contributionId, decision: "reject", aptosTxHash: "0xt2", voterAddress: "0xvoter2" },
       { context: ctx },
     )
     await call(
       voteRouter.cast,
-      { contributionId, decision: "improve", aptosTxHash: "0xt3" },
+      { contributionId, decision: "improve", aptosTxHash: "0xt3", voterAddress: "0xvoter3" },
       { context: ctx },
     )
 
@@ -91,12 +93,12 @@ describe("voteRouter", () => {
   it("listHistory: oy geçmişini döner", async () => {
     await call(
       voteRouter.cast,
-      { contributionId, decision: "approve", aptosTxHash: "0xt1" },
+      { contributionId, decision: "approve", aptosTxHash: "0xt1", voterAddress: "0xvoter1" },
       { context: ctx },
     )
     await call(
       voteRouter.cast,
-      { contributionId, decision: "reject", aptosTxHash: "0xt2" },
+      { contributionId, decision: "reject", aptosTxHash: "0xt2", voterAddress: "0xvoter2" },
       { context: ctx },
     )
 

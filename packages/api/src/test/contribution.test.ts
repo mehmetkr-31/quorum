@@ -36,6 +36,7 @@ describe("contributionRouter", () => {
         shelbyAccount: "shelby://test",
         data: Buffer.from("hello").toString("base64"),
         contentType: "text/plain",
+        contributorAddress: CONTRIBUTOR,
       },
       { context: ctx },
     )
@@ -56,6 +57,8 @@ describe("contributionRouter", () => {
         datasetId: DATASET_ID,
         shelbyAccount: "shelby://test",
         data: Buffer.from("hello").toString("base64"),
+        contentType: "text/plain",
+        contributorAddress: CONTRIBUTOR,
       },
       { context: ctx },
     )
@@ -77,6 +80,8 @@ describe("contributionRouter", () => {
         datasetId: DATASET_ID,
         shelbyAccount: "shelby://test",
         data: Buffer.from("a").toString("base64"),
+        contentType: "text/plain",
+        contributorAddress: CONTRIBUTOR,
       },
       { context: ctx },
     )
@@ -86,6 +91,8 @@ describe("contributionRouter", () => {
         datasetId: DATASET_ID,
         shelbyAccount: "shelby://test",
         data: Buffer.from("b").toString("base64"),
+        contentType: "text/plain",
+        contributorAddress: CONTRIBUTOR,
       },
       { context: ctx },
     )
@@ -101,6 +108,8 @@ describe("contributionRouter", () => {
         datasetId: DATASET_ID,
         shelbyAccount: "shelby://test",
         data: Buffer.from("x").toString("base64"),
+        contentType: "text/plain",
+        contributorAddress: CONTRIBUTOR,
       },
       { context: ctx },
     )
@@ -121,6 +130,8 @@ describe("contributionRouter", () => {
         datasetId: DATASET_ID,
         shelbyAccount: "shelby://test",
         data: Buffer.from("hello").toString("base64"),
+        contentType: "text/plain",
+        contributorAddress: CONTRIBUTOR,
       },
       { context: ctx },
     )
