@@ -53,7 +53,7 @@ describe("walletSignIn", () => {
         ok: true,
         json: async () => ({ nonce: "abc123" }),
       })
-      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({ ok: false, json: async () => null })
     const { walletSignIn } = await import("@/utils/auth-client")
 
     const result = await walletSignIn({

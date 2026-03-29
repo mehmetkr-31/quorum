@@ -36,7 +36,7 @@ export async function walletSignIn(params: {
     )
   } catch (error) {
     console.error("[Auth] signMessage failed:", error)
-    throw error
+    return false
   }
 
   // 3. Sunucuda doğrula
