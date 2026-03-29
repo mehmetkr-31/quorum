@@ -3,42 +3,45 @@ import { WalletButton } from "../components/WalletButton"
 
 export default function Header() {
   return (
-    <nav className="sticky top-0 z-50 border-b border-neutral-800 bg-neutral-950/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
-      <div className="flex items-center gap-10">
-        <Link to="/" className="flex items-center gap-2 group transition-opacity hover:opacity-90">
-          <span className="text-2xl">🏛️</span>
-          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-neutral-400 bg-clip-text text-transparent uppercase">
-            QUORUM
-          </span>
+    <nav className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/15 shadow-[0px_24px_48px_rgba(0,0,0,0.4)]">
+      <div className="flex justify-between items-center h-20 px-8 max-w-[1440px] mx-auto font-headline tracking-tight">
+        <Link to="/" className="text-2xl font-bold tracking-tighter text-on-surface">
+          Quorum
         </Link>
-        <div className="hidden md:flex gap-8 text-sm font-medium text-neutral-400">
-          <Link to="/" className="hover:text-white transition-colors [&.active]:text-white">
-            Home
-          </Link>
+        <div className="hidden md:flex items-center gap-8">
           <Link
-            to="/contribute"
-            className="hover:text-white transition-colors [&.active]:text-white"
+            to="/"
+            className="text-on-surface-variant hover:text-on-surface transition-colors [&.active]:text-primary [&.active]:border-b-2 [&.active]:border-primary [&.active]:pb-1"
           >
-            Contribute
-          </Link>
-          <Link to="/vote" className="hover:text-white transition-colors [&.active]:text-white">
-            Vote
-          </Link>
-          <Link to="/datasets" className="hover:text-white transition-colors [&.active]:text-white">
-            Datasets
-          </Link>
-          <Link to="/earnings" className="hover:text-white transition-colors [&.active]:text-white">
-            Earnings
+            Ecosystem
           </Link>
           <Link
             to="/governance"
-            className="hover:text-white transition-colors [&.active]:text-white"
+            className="text-on-surface-variant hover:text-on-surface transition-colors [&.active]:text-primary"
           >
             Governance
           </Link>
+          <Link
+            to="/datasets"
+            className="text-on-surface-variant hover:text-on-surface transition-colors [&.active]:text-primary"
+          >
+            Datasets
+          </Link>
+          <Link
+            to="/vote"
+            className="text-on-surface-variant hover:text-on-surface transition-colors [&.active]:text-primary"
+          >
+            Vote
+          </Link>
+          <Link
+            to="/contribute"
+            className="text-on-surface-variant hover:text-on-surface transition-colors [&.active]:text-primary"
+          >
+            Docs
+          </Link>
         </div>
+        <WalletButton />
       </div>
-      <WalletButton />
     </nav>
   )
 }

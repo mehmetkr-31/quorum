@@ -1,8 +1,8 @@
 import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk"
 import { AptosWalletAdapterProvider, useWallet } from "@aptos-labs/wallet-adapter-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import { walletSignIn, walletSignOut } from "@/utils/auth-client"
+import { walletSignOut } from "@/utils/auth-client"
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS
 const NODE_URL = import.meta.env.VITE_APTOS_NODE_URL

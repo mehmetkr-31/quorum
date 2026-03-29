@@ -1,7 +1,7 @@
 import { contributions } from "@quorum/db"
 import { and, eq } from "drizzle-orm"
 import { z } from "zod"
-import { protectedProcedure, publicProcedure } from "../index"
+import { publicProcedure } from "../index"
 
 export const contributionRouter = {
   submit: publicProcedure
@@ -77,20 +77,19 @@ export const contributionRouter = {
       }
     }),
 
-  listMine: protectedProcedure
+  listMine: publicProcedure
     .input(
-      z
-        .object({
-          limit: z.number().default(50).optional(),
-        })
-        .optional(),
+      z.object({
+        walletAddress: z.string(),
+        limit: z.number().default(50).optional(),
+      }),
     )
     .handler(async ({ input, context: ctx }) => {
       return ctx.db
         .select()
         .from(contributions)
-        .where(eq(contributions.contributorAddress, ctx.session.walletAddress))
-        .limit(input?.limit ?? 50)
+        .where(eq(contributions.contributorAddress, input.walletAddress))
+        .limit(input.limit ?? 50)
     }),
 
   list: publicProcedure

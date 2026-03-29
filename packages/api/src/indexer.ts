@@ -90,10 +90,20 @@ async function processEvents() {
     const seq = await loadSequenceNumbers()
 
     // 1. ContributionFinalized
-    const finalizedEvents = await aptos.getAccountEventsByEventType({
-      accountAddress: CONTRACT_ADDRESS,
-      eventType: `${CONTRACT_ADDRESS}::dao_governance::ContributionFinalized`,
+    const finalizedResult = await aptos.queryIndexer<{
+      events: Array<{ sequence_number: string; data: unknown }>
+    }>({
+      query: {
+        query: `query($where: events_bool_exp) { events(where: $where, order_by: { sequence_number: asc }) { sequence_number data } }`,
+        variables: {
+          where: {
+            account_address: { _eq: CONTRACT_ADDRESS },
+            type: { _eq: `${CONTRACT_ADDRESS}::dao_governance::ContributionFinalized` },
+          },
+        },
+      },
     })
+    const finalizedEvents = finalizedResult.events
 
     interface ContributionFinalizedData {
       contribution_id: string
@@ -122,10 +132,20 @@ async function processEvents() {
     }
 
     // 2. VoteCast
-    const voteEvents = await aptos.getAccountEventsByEventType({
-      accountAddress: CONTRACT_ADDRESS,
-      eventType: `${CONTRACT_ADDRESS}::dao_governance::VoteCast`,
+    const voteResult = await aptos.queryIndexer<{
+      events: Array<{ sequence_number: string; data: unknown }>
+    }>({
+      query: {
+        query: `query($where: events_bool_exp) { events(where: $where, order_by: { sequence_number: asc }) { sequence_number data } }`,
+        variables: {
+          where: {
+            account_address: { _eq: CONTRACT_ADDRESS },
+            type: { _eq: `${CONTRACT_ADDRESS}::dao_governance::VoteCast` },
+          },
+        },
+      },
     })
+    const voteEvents = voteResult.events
 
     interface VoteCastData {
       voter: string
@@ -158,10 +178,20 @@ async function processEvents() {
     }
 
     // 3. RevenueDistributed
-    const revenueEvents = await aptos.getAccountEventsByEventType({
-      accountAddress: CONTRACT_ADDRESS,
-      eventType: `${CONTRACT_ADDRESS}::revenue_splitter::RevenueDistributed`,
+    const revenueResult = await aptos.queryIndexer<{
+      events: Array<{ sequence_number: string; data: unknown }>
+    }>({
+      query: {
+        query: `query($where: events_bool_exp) { events(where: $where, order_by: { sequence_number: asc }) { sequence_number data } }`,
+        variables: {
+          where: {
+            account_address: { _eq: CONTRACT_ADDRESS },
+            type: { _eq: `${CONTRACT_ADDRESS}::revenue_splitter::RevenueDistributed` },
+          },
+        },
+      },
     })
+    const revenueEvents = revenueResult.events
 
     interface RevenueDistributedData {
       shelby_receipt_hash: string

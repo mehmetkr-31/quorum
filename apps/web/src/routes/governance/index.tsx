@@ -20,35 +20,65 @@ function GovernancePage() {
   )
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-16">
-      <h1 className="text-4xl font-bold mb-12 tracking-tight">Governance</h1>
+    <main className="pt-24 pb-24 px-8 max-w-[1440px] mx-auto dot-grid min-h-screen">
+      {/* Decorative glows */}
+      <div className="fixed top-1/4 -right-64 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[160px] pointer-events-none -z-10" />
+      <div className="fixed bottom-0 -left-64 w-[600px] h-[600px] bg-secondary/5 rounded-full blur-[160px] pointer-events-none -z-10" />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+      {/* Header */}
+      <header className="mb-16">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <span className="text-tertiary font-label text-xs uppercase tracking-[0.2em] mb-3 block">
+              DAO Control Center
+            </span>
+            <h1 className="text-5xl md:text-7xl font-headline font-bold tracking-tighter text-on-surface leading-none">
+              GOVERNANCE
+            </h1>
+          </div>
+          <div className="flex flex-col items-end">
+            <p className="text-on-surface-variant text-sm max-w-[300px] text-right mb-4 leading-relaxed">
+              On-chain statistics, member reputation, and voting history secured by Aptos.
+            </p>
+            <div className="h-1 w-32 bg-gradient-to-r from-primary to-secondary rounded-full" />
+          </div>
+        </div>
+      </header>
+
+      {/* Stats Grid */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
         <StatCard
           label="Total Contributions"
           value={stats?.totalContributions ?? 0}
           isLoading={statsLoading}
+          accent="text-primary"
         />
         <StatCard
           label="Active DAO Members"
           value={stats?.totalMembers ?? 0}
           isLoading={statsLoading}
+          accent="text-secondary"
         />
         <StatCard
           label="Distributed Revenue (APT)"
           value={stats?.totalRevenue ?? "0.00"}
           isLoading={statsLoading}
+          accent="text-tertiary"
         />
-      </div>
+      </section>
 
-      {/* Reputation Leaderboard */}
-      <div className="mb-16">
-        <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-yellow-400" />
-          Reputation Leaderboard
-        </h3>
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 overflow-hidden shadow-2xl">
-          <div className="grid grid-cols-12 text-[10px] font-bold text-neutral-500 p-4 border-b border-neutral-800 uppercase tracking-widest bg-neutral-950 gap-2">
+      {/* Leaderboard */}
+      <section className="mb-16">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl font-headline font-bold text-on-surface tracking-tight">
+            Reputation Leaderboard
+          </h2>
+          <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-primary/20">
+            Top Curators
+          </span>
+        </div>
+        <div className="glass-card rounded-xl overflow-hidden border border-outline-variant/10">
+          <div className="grid grid-cols-12 text-[10px] font-label font-bold text-on-surface-variant px-8 py-5 border-b border-outline-variant/10 bg-surface-container-low/50 uppercase tracking-widest gap-2">
             <span className="col-span-1">#</span>
             <span className="col-span-5">Member</span>
             <span className="col-span-2 text-center">Power</span>
@@ -56,38 +86,40 @@ function GovernancePage() {
             <span className="col-span-2 text-right">Accuracy</span>
           </div>
           {leaderboardLoading ? (
-            <div className="p-4 space-y-3">
+            <div className="p-8 space-y-4 animate-pulse">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-6 bg-neutral-800 animate-pulse rounded" />
+                <div key={i} className="h-6 bg-surface-container rounded" />
               ))}
             </div>
           ) : leaderboard?.length === 0 ? (
-            <div className="p-8 text-center text-sm text-neutral-500 italic">No members yet.</div>
+            <div className="p-12 text-center text-on-surface-variant text-sm italic">
+              No members yet.
+            </div>
           ) : (
-            <div className="divide-y divide-neutral-800/50">
+            <div className="divide-y divide-outline-variant/5">
               {leaderboard?.map((m, i) => (
                 <div
                   key={m.address}
-                  className="grid grid-cols-12 p-4 text-sm items-center hover:bg-neutral-800/40 transition-colors gap-2"
+                  className="grid grid-cols-12 px-8 py-5 text-sm items-center hover:bg-primary/5 transition-colors gap-2 cursor-default"
                 >
-                  <span className="col-span-1 text-neutral-600 font-bold text-xs">{i + 1}</span>
-                  <span className="col-span-5 font-mono text-indigo-400/90 text-xs">
+                  <span className="col-span-1 text-outline font-bold text-xs">{i + 1}</span>
+                  <span className="col-span-5 font-mono text-primary text-xs">
                     {m.address.slice(0, 10)}...{m.address.slice(-4)}
                   </span>
-                  <span className="col-span-2 text-center font-bold text-neutral-300">
+                  <span className="col-span-2 text-center font-bold text-on-surface">
                     {m.votingPower}
                   </span>
-                  <span className="col-span-2 text-center text-teal-400 text-xs">
+                  <span className="col-span-2 text-center text-tertiary text-xs">
                     {m.approvedContributions}/{m.totalContributions}
                   </span>
                   <span className="col-span-2 text-right">
                     <span
-                      className={`text-xs font-bold px-2 py-0.5 rounded ${
+                      className={`text-xs font-bold px-3 py-1 rounded-full ${
                         m.accuracy >= 70
-                          ? "bg-teal-500/10 text-teal-400"
+                          ? "bg-tertiary/10 text-tertiary border border-tertiary/20"
                           : m.accuracy >= 40
-                            ? "bg-yellow-500/10 text-yellow-400"
-                            : "bg-neutral-800 text-neutral-500"
+                            ? "bg-secondary/10 text-secondary border border-secondary/20"
+                            : "bg-surface-container text-on-surface-variant border border-outline-variant/20"
                       }`}
                     >
                       {m.accuracy}%
@@ -98,42 +130,49 @@ function GovernancePage() {
             </div>
           )}
         </div>
-      </div>
+      </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-        {/* Members Section */}
+      {/* Members + Vote History */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Members */}
         <div>
-          <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-teal-400" />
-            Active Members
-          </h3>
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 overflow-hidden shadow-2xl">
-            <div className="grid grid-cols-2 text-[10px] font-bold text-neutral-500 p-4 border-b border-neutral-800 uppercase tracking-widest bg-neutral-950">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-headline font-bold text-on-surface tracking-tight">
+              Active Members
+            </h2>
+            <span className="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-secondary/20">
+              {members?.length ?? 0} nodes
+            </span>
+          </div>
+          <div className="glass-card rounded-xl overflow-hidden border border-outline-variant/10">
+            <div className="grid grid-cols-2 text-[10px] font-label font-bold text-on-surface-variant px-8 py-5 border-b border-outline-variant/10 bg-surface-container-low/50 uppercase tracking-widest">
               <span>Member Address</span>
               <span className="text-right">Voting Power</span>
             </div>
-
             {membersLoading ? (
-              <div className="p-4 space-y-4">
-                <div className="h-6 bg-neutral-800 animate-pulse rounded" />
-                <div className="h-6 bg-neutral-800 animate-pulse rounded" />
+              <div className="p-8 space-y-4 animate-pulse">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-6 bg-surface-container rounded" />
+                ))}
               </div>
             ) : members?.length === 0 ? (
-              <div className="p-8 text-center text-sm text-neutral-500 italic">
+              <div className="p-12 text-center text-on-surface-variant text-sm italic">
                 No members found.
               </div>
             ) : (
-              <div className="divide-y divide-neutral-800/50 max-h-96 overflow-y-auto scrollbar-thin">
+              <div className="divide-y divide-outline-variant/5 max-h-96 overflow-y-auto">
                 {members?.map((m) => (
                   <div
                     key={m.address}
-                    className="grid grid-cols-2 p-4 text-sm font-mono hover:bg-neutral-800/40 transition-colors items-center"
+                    className="grid grid-cols-2 px-8 py-5 text-sm font-mono hover:bg-primary/5 transition-colors items-center"
                   >
-                    <span className="text-indigo-400/90">
+                    <span className="text-primary text-xs">
                       {m.address.slice(0, 10)}...{m.address.slice(-4)}
                     </span>
-                    <span className="text-right text-neutral-300 font-bold bg-neutral-800 px-2 py-0.5 rounded ml-auto">
-                      {m.votingPower}
+                    <span className="text-right">
+                      <span className="text-on-surface font-bold bg-surface-container px-3 py-1 rounded-full text-xs border border-outline-variant/20">
+                        {m.votingPower} VP
+                      </span>
                     </span>
                   </div>
                 ))}
@@ -142,54 +181,58 @@ function GovernancePage() {
           </div>
         </div>
 
-        {/* Voting History Section */}
+        {/* Vote History */}
         <div>
-          <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-indigo-400" />
-            Recent Votes
-          </h3>
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 overflow-hidden shadow-2xl">
-            <div className="grid grid-cols-12 text-[10px] font-bold text-neutral-500 p-4 border-b border-neutral-800 uppercase tracking-widest bg-neutral-950 gap-2">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-headline font-bold text-on-surface tracking-tight">
+              Recent Votes
+            </h2>
+            <span className="bg-tertiary/10 text-tertiary px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-tertiary/20">
+              Live Sync
+            </span>
+          </div>
+          <div className="glass-card rounded-xl overflow-hidden border border-outline-variant/10">
+            <div className="grid grid-cols-12 text-[10px] font-label font-bold text-on-surface-variant px-8 py-5 border-b border-outline-variant/10 bg-surface-container-low/50 uppercase tracking-widest gap-2">
               <span className="col-span-5">Voter</span>
               <span className="col-span-3">Decision</span>
               <span className="col-span-4 text-right">Time</span>
             </div>
-
             {historyLoading ? (
-              <div className="p-4 space-y-4">
-                <div className="h-6 bg-neutral-800 animate-pulse rounded" />
-                <div className="h-6 bg-neutral-800 animate-pulse rounded" />
+              <div className="p-8 space-y-4 animate-pulse">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-6 bg-surface-container rounded" />
+                ))}
               </div>
             ) : voteHistory?.length === 0 ? (
-              <div className="p-8 text-center text-sm text-neutral-500 italic">
+              <div className="p-12 text-center text-on-surface-variant text-sm italic">
                 No votes cast yet.
               </div>
             ) : (
-              <div className="divide-y divide-neutral-800/50 max-h-96 overflow-y-auto scrollbar-thin">
+              <div className="divide-y divide-outline-variant/5 max-h-96 overflow-y-auto">
                 {voteHistory?.map((vote) => (
                   <div
                     key={vote.id}
-                    className="grid grid-cols-12 p-4 text-sm font-mono items-center hover:bg-neutral-800/40 transition-colors gap-2"
+                    className="grid grid-cols-12 px-8 py-5 text-sm font-mono items-center hover:bg-primary/5 transition-colors gap-2 cursor-default"
                   >
-                    <span className="col-span-5 text-indigo-400/80 text-xs">
+                    <span className="col-span-5 text-primary text-xs">
                       {vote.voterAddress.slice(0, 6)}...{vote.voterAddress.slice(-4)}
                     </span>
-                    <span className="col-span-3 flex">
+                    <span className="col-span-3">
                       {vote.decision === "approve" ? (
-                        <span className="text-[10px] font-bold bg-teal-500/10 text-teal-400 border border-teal-500/20 px-2 py-0.5 rounded uppercase">
+                        <span className="text-[10px] font-bold bg-tertiary/10 text-tertiary border border-tertiary/20 px-2 py-1 rounded-full uppercase">
                           Approve
                         </span>
                       ) : vote.decision === "reject" ? (
-                        <span className="text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded uppercase">
+                        <span className="text-[10px] font-bold bg-error/10 text-error border border-error/20 px-2 py-1 rounded-full uppercase">
                           Reject
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 px-2 py-0.5 rounded uppercase">
+                        <span className="text-[10px] font-bold bg-secondary/10 text-secondary border border-secondary/20 px-2 py-1 rounded-full uppercase">
                           Improve
                         </span>
                       )}
                     </span>
-                    <span className="col-span-4 text-right text-xs text-neutral-500">
+                    <span className="col-span-4 text-right text-xs text-on-surface-variant">
                       {formatDistanceToNow(new Date(vote.createdAt), { addSuffix: true })}
                     </span>
                   </div>
@@ -199,7 +242,7 @@ function GovernancePage() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   )
 }
 
@@ -207,20 +250,22 @@ function StatCard({
   label,
   value,
   isLoading,
+  accent,
 }: {
   label: string
   value: string | number
   isLoading?: boolean
+  accent: string
 }) {
   return (
-    <div className="p-8 rounded-[2rem] bg-neutral-900 border border-neutral-800 text-center shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col justify-center min-h-[140px]">
-      <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-3">
+    <div className="glass-card p-8 rounded-xl relative overflow-hidden group">
+      <h3 className="text-on-surface-variant text-xs uppercase tracking-widest font-label mb-6">
         {label}
-      </p>
+      </h3>
       {isLoading ? (
-        <div className="h-8 w-16 mx-auto bg-neutral-800 animate-pulse rounded" />
+        <div className="h-10 w-24 bg-surface-container animate-pulse rounded" />
       ) : (
-        <p className="text-4xl font-bold tracking-tight text-white">{value}</p>
+        <p className={`text-4xl font-headline font-bold ${accent}`}>{value}</p>
       )}
     </div>
   )

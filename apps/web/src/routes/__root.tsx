@@ -22,10 +22,27 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "Quorum DAO",
+        title: "Quorum | Community-Governed AI Dataset DAO",
       },
     ],
     links: [
+      {
+        rel: "preconnect",
+        href: "https://fonts.googleapis.com",
+      },
+      {
+        rel: "preconnect",
+        href: "https://fonts.gstatic.com",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap",
+      },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200",
+      },
       {
         rel: "stylesheet",
         href: appCss,
@@ -43,18 +60,49 @@ function RootDocument() {
       </head>
       <body>
         <WalletProvider>
-          <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans selection:bg-indigo-500/30">
+          <div className="min-h-screen selection:bg-primary/30">
             <Header />
             <main>
               <Outlet />
             </main>
-            <footer className="border-t border-neutral-800 py-12 px-6 text-center">
-              <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-                <div className="flex items-center gap-2 grayscale opacity-50">
-                  <span className="text-xl">🏛️</span>
-                  <span className="text-lg font-bold tracking-tight">QUORUM</span>
+            <footer className="bg-surface-container-lowest border-t border-outline-variant/15 w-full py-12 px-8">
+              <div className="flex flex-col md:flex-row justify-between items-center gap-6 max-w-[1440px] mx-auto font-['Inter'] text-sm text-on-surface-variant">
+                <div className="text-xl font-bold text-on-surface tracking-tighter">Quorum</div>
+                <div className="flex flex-wrap justify-center gap-8">
+                  <a
+                    className="hover:text-tertiary transition-colors hover:underline decoration-tertiary/50"
+                    href="/"
+                  >
+                    Privacy Policy
+                  </a>
+                  <a
+                    className="hover:text-tertiary transition-colors hover:underline decoration-tertiary/50"
+                    href="/"
+                  >
+                    Terms of Service
+                  </a>
+                  <a
+                    className="hover:text-tertiary transition-colors hover:underline decoration-tertiary/50"
+                    href="/"
+                  >
+                    Security Audit
+                  </a>
+                  <a
+                    className="hover:text-tertiary transition-colors hover:underline decoration-tertiary/50"
+                    href="/"
+                  >
+                    Github
+                  </a>
+                  <a
+                    className="hover:text-tertiary transition-colors hover:underline decoration-tertiary/50"
+                    href="/"
+                  >
+                    Discord
+                  </a>
                 </div>
-                <p className="text-neutral-500 text-sm">Powered by Aptos & Shelby Protocol</p>
+                <div className="text-on-surface-variant/60">
+                  © 2024 Quorum DAO. Governed by the Community.
+                </div>
               </div>
             </footer>
           </div>
