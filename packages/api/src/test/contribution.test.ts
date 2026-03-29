@@ -138,6 +138,6 @@ describe("contributionRouter", () => {
 
     const content = await call(contributionRouter.getContent, { id }, { context: ctx })
     expect(content.contentType).toBe("application/octet-stream")
-    expect(Buffer.from(content.data, "base64").toString()).toBe("test content")
+    expect(Buffer.from(content.data ?? "", "base64").toString()).toBe("test content")
   })
 })

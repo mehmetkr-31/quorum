@@ -33,7 +33,7 @@ function ContributionPreview({ id }: { id: string }) {
     )
   }
 
-  if (isError || !data) {
+  if (isError || !data || !data.contentType || !data.data) {
     return (
       <div className="text-xs text-red-500 mt-4 p-4 bg-neutral-950 rounded-lg">
         Failed to load content from Shelby Protocol.

@@ -20,7 +20,8 @@
     "prepare": "simple-git-hooks"
   },
   "simple-git-hooks": {
-    "pre-commit": "pnpm lint-staged"
+    "pre-commit": "pnpm lint-staged",
+    "pre-push": "pnpm turbo typecheck"
   },
   "lint-staged": {
     "**/*.{ts,tsx,js,jsx,json,css,astro}": "biome check --write --no-errors-on-unmatched"
