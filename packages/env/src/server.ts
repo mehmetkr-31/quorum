@@ -7,15 +7,10 @@ export const serverEnv = z.object({
   APTOS_API_KEY: z.string().optional(),
   APTOS_NODE_URL: z.string().min(1),
   QUORUM_CONTRACT_ADDRESS: z.string(),
-  SHELBY_ACCOUNT: z.string().optional(),
   SHELBY_NETWORK: z.string().default("SHELBYNET"),
   SHELBY_API_KEY: z.string().optional(),
-  SHELBY_BASE_URL: z.string().min(1),
-  SHELBY_MOCK: z
-    .string()
-    .optional()
-    .transform((v) => v === "true")
-    .default(false),
+  SHELBY_BASE_URL: z.string().optional(),
+  SHELBY_ACCOUNT_PRIVATE_KEY: z.string().optional(),
   BETTER_AUTH_SECRET: z.string(),
   BETTER_AUTH_URL: z.string().min(1),
 })

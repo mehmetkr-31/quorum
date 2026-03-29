@@ -1,7 +1,7 @@
 import { contributions, members, receipts } from "@quorum/db"
 import { and, eq, sql } from "drizzle-orm"
 import { z } from "zod"
-import { protectedProcedure, publicProcedure } from "../index"
+import { publicProcedure } from "../index"
 
 export const revenueRouter = {
   anchorReceipt: publicProcedure

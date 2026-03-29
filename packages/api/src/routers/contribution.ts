@@ -8,33 +8,34 @@ export const contributionRouter = {
     .input(
       z.object({
         datasetId: z.string(),
-        shelbyAccount: z.string(),
+        shelbyAccount: z.string(), // kept for API compatibility, overridden by server signer
         contributorAddress: z.string(),
         data: z.string(), // base64
         contentType: z.string().default("application/octet-stream").optional(),
       }),
     )
     .handler(async ({ input, context: ctx }) => {
-      const buffer = Buffer.from(input.data, "base64")
-      const res = await ctx.shelbyClient.upload(buffer, input.contentType)
-
       const id = crypto.randomUUID()
+      const blobName = `contributions/${input.datasetId}/${id}`
+      const buffer = Buffer.from(input.data, "base64")
+
+      const { shelbyAccount, dataHash } = await ctx.shelbyClient.upload(
+        buffer,
+        blobName,
+        input.contentType,
+      )
+
       await ctx.db.insert(contributions).values({
         id,
         datasetId: input.datasetId,
         contributorAddress: input.contributorAddress,
-        shelbyAccount: input.shelbyAccount || res.shelbyAccount,
-        shelbyBlobName: res.blobName,
-        dataHash: res.dataHash,
+        shelbyAccount,
+        shelbyBlobName: blobName,
+        dataHash,
         createdAt: new Date(),
       })
 
-      return {
-        id,
-        shelbyAccount: res.shelbyAccount,
-        shelbyBlobName: res.blobName,
-        dataHash: res.dataHash,
-      }
+      return { id, shelbyAccount, shelbyBlobName: blobName, dataHash }
     }),
 
   confirmOnChain: publicProcedure
@@ -65,15 +66,18 @@ export const contributionRouter = {
       if (!contribution) throw new Error("Contribution not found")
 
       try {
-        const res = await ctx.shelbyClient.read(contribution.shelbyBlobName)
-        const base64 = Buffer.from(res.data).toString("base64")
+        const data = await ctx.shelbyClient.download(
+          contribution.shelbyAccount,
+          contribution.shelbyBlobName,
+        )
         return {
-          data: base64,
-          contentType: res.contentType,
+          data: data.toString("base64"),
+          contentType: "application/octet-stream",
+          error: null,
         }
       } catch (e: unknown) {
         console.error(`Failed to read blob from Shelby: ${contribution.shelbyBlobName}`, e)
-        throw new Error("Failed to fetch content from Shelby Protocol")
+        return { data: null, contentType: null, error: "Content not available" }
       }
     }),
 

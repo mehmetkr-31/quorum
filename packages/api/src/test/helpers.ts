@@ -72,13 +72,9 @@ export function createMockContext(db: ReturnType<typeof createTestDb>["db"]): Co
     shelbyClient: {
       upload: async () => ({
         shelbyAccount: "shelby://test",
-        blobName: "test-blob",
         dataHash: "0xabc123",
       }),
-      read: async () => ({
-        data: new TextEncoder().encode("test content"),
-        contentType: "text/plain",
-      }),
+      download: async () => Buffer.from("test content"),
       // biome-ignore lint/suspicious/noExplicitAny: test mock
     } as any,
     session: {

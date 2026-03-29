@@ -4,6 +4,12 @@ import { createDb, type Db } from "@quorum/db"
 import { env } from "@quorum/env/server"
 import { ShelbyClient } from "@quorum/shelby"
 
+function parseShelbyNetwork(s: string): Network {
+  if (s.toUpperCase() === "TESTNET") return Network.TESTNET
+  if (s.toUpperCase() === "LOCAL") return Network.LOCAL
+  return Network.SHELBYNET
+}
+
 let _db: Db | null = null
 let _aptosClient: QuorumAptosClient | null = null
 let _shelbyClient: ShelbyClient | null = null
@@ -18,7 +24,7 @@ function getDb(): Db {
 function getAptosClient(): QuorumAptosClient {
   if (!_aptosClient) {
     _aptosClient = new QuorumAptosClient({
-      network: Network.TESTNET,
+      network: Network.CUSTOM,
       nodeUrl: env.APTOS_NODE_URL,
       contractAddress: env.QUORUM_CONTRACT_ADDRESS,
       serverPrivateKey: env.APTOS_PRIVATE_KEY,
@@ -31,9 +37,10 @@ function getAptosClient(): QuorumAptosClient {
 function getShelbyClient(): ShelbyClient {
   if (!_shelbyClient) {
     _shelbyClient = new ShelbyClient({
-      baseUrl: env.SHELBY_BASE_URL,
-      apiKey: env.SHELBY_API_KEY ?? "",
-      isMock: env.SHELBY_MOCK,
+      network: parseShelbyNetwork(env.SHELBY_NETWORK),
+      apiKey: env.SHELBY_API_KEY,
+      serverPrivateKey: env.SHELBY_ACCOUNT_PRIVATE_KEY,
+      rpcBaseUrl: env.SHELBY_BASE_URL,
     })
   }
   return _shelbyClient

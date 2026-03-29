@@ -1,2 +1,2 @@
-export type { ShelbyConfig, ShelbyReceipt, UploadResult } from "./client"
+export type { ShelbyConfig, UploadResult } from "./client"
 export { ShelbyClient } from "./client"

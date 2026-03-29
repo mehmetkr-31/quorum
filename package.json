@@ -35,5 +35,8 @@
     "turbo": "^2.8.12",
     "typescript": "^5.0.0"
   },
-  "packageManager": "pnpm@10.0.0"
+  "packageManager": "pnpm@10.0.0",
+  "dependencies": {
+    "dotenv": "catalog:"
+  }
 }

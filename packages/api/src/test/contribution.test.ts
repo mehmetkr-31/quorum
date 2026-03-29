@@ -41,7 +41,7 @@ describe("contributionRouter", () => {
       { context: ctx },
     )
 
-    expect(result.shelbyBlobName).toBe("test-blob")
+    expect(result.shelbyBlobName).toMatch(/^contributions\/ds-1\//)
     expect(result.dataHash).toBe("0xabc123")
 
     const rows = await db.select().from(contributions).where(eq(contributions.id, result.id))
@@ -137,7 +137,7 @@ describe("contributionRouter", () => {
     )
 
     const content = await call(contributionRouter.getContent, { id }, { context: ctx })
-    expect(content.contentType).toBe("text/plain")
+    expect(content.contentType).toBe("application/octet-stream")
     expect(Buffer.from(content.data, "base64").toString()).toBe("test content")
   })
 })

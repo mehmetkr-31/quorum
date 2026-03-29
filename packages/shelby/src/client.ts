@@ -1,113 +1,94 @@
+import crypto from "node:crypto"
+import { Account, Ed25519PrivateKey, type Network } from "@aptos-labs/ts-sdk"
+import { type ShelbyNetwork, ShelbyNodeClient } from "@shelby-protocol/sdk/node"
+
 export interface ShelbyConfig {
-  baseUrl: string
-  apiKey: string
-  isMock?: boolean
+  network: Network
+  apiKey?: string
+  serverPrivateKey?: string
+  rpcBaseUrl?: string
 }
 
 export interface UploadResult {
   shelbyAccount: string
-  blobName: string
   dataHash: string
 }
 
-export interface ShelbyReceipt {
-  receiptHash: string
-  blobAddress: string
-  readerAddress: string
-  timestamp: number
-  amount: bigint
-}
-
 export class ShelbyClient {
-  private baseUrl: string
-  private apiKey: string
-  private isMock: boolean
+  private client: ShelbyNodeClient
+  private signer: Account
 
   constructor(config: ShelbyConfig) {
-    this.baseUrl = config.baseUrl.replace(/\/$/, "")
-    this.apiKey = config.apiKey
-    this.isMock = !!config.isMock
+    if (config.serverPrivateKey) {
+      this.signer = Account.fromPrivateKey({
+        privateKey: new Ed25519PrivateKey(config.serverPrivateKey),
+      })
+    } else {
+      this.signer = Account.generate()
+    }
+
+    this.client = new ShelbyNodeClient({
+      network: config.network as unknown as ShelbyNetwork,
+      apiKey: config.apiKey,
+      ...(config.rpcBaseUrl ? { rpc: { baseUrl: config.rpcBaseUrl } } : {}),
+    })
   }
 
-  private authHeaders(): HeadersInit {
-    return { Authorization: `Bearer ${this.apiKey}` }
-  }
-
+  /**
+   * Uploads data to Shelby. The caller is responsible for generating a
+   * stable blobName (e.g. "contributions/{datasetId}/{contributionId}").
+   */
   async upload(
     data: Uint8Array | Buffer,
-    contentType = "application/octet-stream",
+    blobName: string,
+    _contentType = "application/octet-stream",
   ): Promise<UploadResult> {
-    if (this.isMock) {
-      console.log("Shelby Mock: Simulating upload...")
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      return {
-        shelbyAccount: "shelby://mock-account",
-        blobName: `mock-data-${Date.now()}.txt`,
-        dataHash: `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}`,
-      }
-    }
+    const blobData = data instanceof Uint8Array ? data : new Uint8Array(data)
+    // 7 days from now in microseconds
+    const expirationMicros = Date.now() * 1000 + 7 * 24 * 3_600_000_000
 
-    const response = await fetch(`${this.baseUrl}/blobs`, {
-      method: "POST",
-      headers: {
-        ...this.authHeaders(),
-        "Content-Type": contentType,
-      },
-      body: data as BodyInit,
+    const hashBuffer = await crypto.subtle.digest("SHA-256", blobData)
+    const dataHash = `0x${Buffer.from(hashBuffer).toString("hex")}`
+
+    await this.client.upload({
+      blobData,
+      signer: this.signer,
+      blobName,
+      expirationMicros,
     })
-    if (!response.ok) {
-      throw new Error(`Shelby upload failed: ${response.status} ${response.statusText}`)
+
+    return {
+      shelbyAccount: this.signer.accountAddress.toString(),
+      dataHash,
     }
-    return response.json() as Promise<UploadResult>
   }
 
-  async download(blobAddress: string): Promise<Uint8Array> {
-    const response = await fetch(`${this.baseUrl}/blobs/${encodeURIComponent(blobAddress)}`, {
-      headers: this.authHeaders(),
+  /**
+   * Downloads a blob from Shelby and returns it as a Buffer.
+   */
+  async download(shelbyAccount: string, blobName: string): Promise<Buffer> {
+    const blob = await this.client.download({
+      account: shelbyAccount,
+      blobName,
     })
-    if (!response.ok) {
-      throw new Error(`Shelby download failed: ${response.status} ${response.statusText}`)
-    }
-    return new Uint8Array(await response.arrayBuffer())
-  }
 
-  async read(blobName: string): Promise<{ data: Uint8Array; contentType: string }> {
-    if (this.isMock) {
-      return {
-        data: new TextEncoder().encode(`mock-content-for-${blobName}`),
-        contentType: "application/octet-stream",
-      }
-    }
-    const response = await fetch(`${this.baseUrl}/blobs/${encodeURIComponent(blobName)}`, {
-      headers: this.authHeaders(),
-    })
-    if (!response.ok) {
-      throw new Error(`Shelby read failed: ${response.status} ${response.statusText}`)
-    }
-    const contentType = response.headers.get("Content-Type") ?? "application/octet-stream"
-    const data = new Uint8Array(await response.arrayBuffer())
-    return { data, contentType }
-  }
+    const reader = blob.readable.getReader()
+    const chunks: Uint8Array[] = []
 
-  async getReceipt(receiptHash: string): Promise<ShelbyReceipt> {
-    const response = await fetch(`${this.baseUrl}/receipts/${encodeURIComponent(receiptHash)}`, {
-      headers: this.authHeaders(),
-    })
-    if (!response.ok) {
-      throw new Error(`Shelby receipt fetch failed: ${response.status} ${response.statusText}`)
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) chunks.push(value)
     }
-    return response.json() as Promise<ShelbyReceipt>
-  }
 
-  async listReceipts(blobAddress: string, since?: number): Promise<ShelbyReceipt[]> {
-    const params = new URLSearchParams({ blobAddress })
-    if (since !== undefined) params.set("since", String(since))
-    const response = await fetch(`${this.baseUrl}/receipts?${params}`, {
-      headers: this.authHeaders(),
-    })
-    if (!response.ok) {
-      throw new Error(`Shelby receipts list failed: ${response.status} ${response.statusText}`)
+    const totalLength = chunks.reduce((sum, c) => sum + c.length, 0)
+    const result = new Uint8Array(totalLength)
+    let offset = 0
+    for (const chunk of chunks) {
+      result.set(chunk, offset)
+      offset += chunk.length
     }
-    return response.json() as Promise<ShelbyReceipt[]>
+
+    return Buffer.from(result)
   }
 }

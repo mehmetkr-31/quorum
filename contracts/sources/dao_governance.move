@@ -15,7 +15,7 @@ module quorum::dao_governance {
 
     // ── Constants ────────────────────────────────────────────────────────────
     /// 48-hour voting window in microseconds
-    const VOTING_WINDOW_US: u64 = 172_800_000_000;
+    const VOTING_WINDOW_US: u64 = 60_000_000;
     /// Approval threshold: 60% weighted votes required
     const QUORUM_THRESHOLD: u64 = 60;
 

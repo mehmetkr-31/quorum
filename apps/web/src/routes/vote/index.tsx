@@ -1,4 +1,4 @@
-import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk"
+import { Aptos, AptosConfig, type InputEntryFunctionData, Network } from "@aptos-labs/ts-sdk"
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
@@ -145,7 +145,7 @@ function VotePage() {
         functionArguments: [],
       }
       const result = await signAndSubmitTransaction({
-        data: payload as any,
+        data: payload as InputEntryFunctionData,
       })
       await aptos.waitForTransaction({ transactionHash: result.hash })
       setIsMember(true)
@@ -183,7 +183,7 @@ function VotePage() {
       }
 
       const result = await signAndSubmitTransaction({
-        data: payload as any,
+        data: payload as InputEntryFunctionData,
       })
       await aptos.waitForTransaction({ transactionHash: result.hash })
 
@@ -225,7 +225,7 @@ function VotePage() {
       }
 
       const result = await signAndSubmitTransaction({
-        data: payload as any,
+        data: payload as InputEntryFunctionData,
       })
       await aptos.waitForTransaction({ transactionHash: result.hash })
 
