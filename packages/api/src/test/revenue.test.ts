@@ -19,9 +19,13 @@ describe("revenueRouter", () => {
     await setupTestSchema(client)
     ctx = createMockContext(db)
 
-    await db
-      .insert(datasets)
-      .values({ id: DATASET_ID, name: "DS", ownerAddress: "0x1", createdAt: new Date() })
+    await db.insert(datasets).values({
+      id: DATASET_ID,
+      daoId: "dao-test",
+      name: "DS",
+      ownerAddress: "0x1",
+      createdAt: new Date(),
+    })
   })
 
   it("anchorReceipt: receipt kaydeder ve id döner", async () => {

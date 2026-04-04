@@ -11,8 +11,32 @@ export function createTestDb() {
 
 export async function setupTestSchema(client: ReturnType<typeof createClient>) {
   await client.batch([
+    `CREATE TABLE IF NOT EXISTS daos (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      slug TEXT NOT NULL UNIQUE,
+      owner_address TEXT NOT NULL,
+      treasury_address TEXT NOT NULL,
+      image_url TEXT,
+      on_chain_id TEXT,
+      voting_window_seconds INTEGER NOT NULL DEFAULT 172800,
+      quorum_threshold INTEGER NOT NULL DEFAULT 60,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS dao_memberships (
+      id TEXT PRIMARY KEY,
+      dao_id TEXT NOT NULL,
+      member_address TEXT NOT NULL,
+      voting_power INTEGER NOT NULL DEFAULT 1,
+      approved_contributions INTEGER NOT NULL DEFAULT 0,
+      total_contributions INTEGER NOT NULL DEFAULT 0,
+      role TEXT NOT NULL DEFAULT 'member',
+      joined_at INTEGER NOT NULL
+    )`,
     `CREATE TABLE IF NOT EXISTS datasets (
       id TEXT PRIMARY KEY,
+      dao_id TEXT NOT NULL,
       name TEXT NOT NULL,
       description TEXT,
       owner_address TEXT NOT NULL,

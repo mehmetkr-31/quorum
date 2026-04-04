@@ -13,6 +13,7 @@ export const serverEnv = z.object({
   SHELBY_ACCOUNT_PRIVATE_KEY: z.string().optional(),
   BETTER_AUTH_SECRET: z.string(),
   BETTER_AUTH_URL: z.string().min(1),
+  HUGGINGFACE_TOKEN: z.string().optional(),
 })
 
 const isServer = typeof window === "undefined"

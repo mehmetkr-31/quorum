@@ -9,13 +9,15 @@ import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk"
 import {
   contributions,
   createDb,
+  daoMemberships,
+  daos,
   datasets,
   indexerState,
   members,
   receipts,
   votes,
 } from "@quorum/db"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 
 // ── Database ─────────────────────────────────────────────────────────────────
 const webDir = path.resolve(import.meta.dirname, "../../../apps/web")
@@ -27,8 +29,6 @@ const dbToken = process.env.DATABASE_AUTH_TOKEN
 const db = createDb(dbUrl, dbToken)
 
 // ── Aptos client ─────────────────────────────────────────────────────────────
-// Detect network from node URL — shelbynet has no indexer endpoint, so we use
-// getAccountTransactions (REST fullnode) instead of queryIndexer (GraphQL).
 const NODE_URL = process.env.APTOS_NODE_URL
 function detectNetwork(url?: string): Network {
   if (!url) return Network.TESTNET
@@ -57,8 +57,6 @@ function hexToString(hex: string): string {
   return HEX_DECODER.decode(bytes).replace(/\0/g, "")
 }
 
-// Track progress by the highest transaction version we've processed.
-// Stored in indexer_state with eventType = "lastTxVersion".
 async function loadLastVersion(): Promise<bigint> {
   const rows = await db
     .select()
@@ -81,12 +79,29 @@ async function saveLastVersion(version: bigint) {
     })
 }
 
+// Upsert a minimal DAO row so FK constraints pass.
+async function ensureDao(daoId: string) {
+  await db
+    .insert(daos)
+    .values({
+      id: daoId,
+      name: daoId,
+      slug: daoId.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      ownerAddress: CONTRACT_ADDRESS!,
+      treasuryAddress: CONTRACT_ADDRESS!,
+      createdAt: new Date(),
+    })
+    .onConflictDoNothing()
+}
+
 // Upsert a minimal dataset row so FK constraints on contributions/receipts pass.
-async function ensureDataset(datasetId: string) {
+async function ensureDataset(datasetId: string, daoId?: string) {
+  if (daoId) await ensureDao(daoId)
   await db
     .insert(datasets)
     .values({
       id: datasetId,
+      daoId: daoId || "dao-1", // fallback to default DAO
       name: datasetId,
       ownerAddress: CONTRACT_ADDRESS!,
       createdAt: new Date(),
@@ -132,11 +147,73 @@ async function processEvents(exitAfter = false) {
       if (version > maxVersionSeen) maxVersionSeen = version
       if (!txn.success || !txn.events?.length) continue
 
-      for (const ev of txn.events) {
+      for (const ev of txns.length > 0 ? txn.events : []) {
         try {
-          // 1. ContributionSubmitted ─────────────────────────────────────────
-          if (ev.type === `${CONTRACT_ADDRESS}::dao_governance::ContributionSubmitted`) {
+          // 1. DAOCreated ──────────────────────────────────────────────────
+          if (ev.type === `${CONTRACT_ADDRESS}::dao_governance::DAOCreated`) {
             const d = ev.data as {
+              dao_id: string
+              name: string
+              creator: string
+              treasury: string
+              timestamp: string
+            }
+            const daoId = hexToString(d.dao_id)
+            const daoName = hexToString(d.name)
+            console.log(`  [DAOCreated] ${daoId} "${daoName}" by ${d.creator}`)
+
+            await db
+              .insert(daos)
+              .values({
+                id: daoId,
+                name: daoName,
+                slug: daoId.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+                ownerAddress: d.creator,
+                treasuryAddress: d.treasury,
+                onChainId: daoId,
+                createdAt: new Date(Number(BigInt(d.timestamp) / 1000n)),
+              })
+              .onConflictDoNothing()
+            totalProcessed++
+          }
+
+          // 2. DAOMemberJoined ─────────────────────────────────────────────
+          else if (ev.type === `${CONTRACT_ADDRESS}::dao_governance::DAOMemberJoined`) {
+            const d = ev.data as {
+              dao_id: string
+              member: string
+              timestamp: string
+            }
+            const daoId = hexToString(d.dao_id)
+            console.log(`  [DAOMemberJoined] ${d.member} joined ${daoId}`)
+
+            await ensureDao(daoId)
+            const membershipId = `${daoId}-${d.member}`
+            await db
+              .insert(daoMemberships)
+              .values({
+                id: membershipId,
+                daoId,
+                memberAddress: d.member,
+                joinedAt: new Date(Number(BigInt(d.timestamp) / 1000n)),
+              })
+              .onConflictDoNothing()
+
+            // Also ensure global members table
+            await db
+              .insert(members)
+              .values({
+                address: d.member,
+                joinedAt: new Date(Number(BigInt(d.timestamp) / 1000n)),
+              })
+              .onConflictDoNothing()
+            totalProcessed++
+          }
+
+          // 3. ContributionSubmitted ─────────────────────────────────────────
+          else if (ev.type === `${CONTRACT_ADDRESS}::dao_governance::ContributionSubmitted`) {
+            const d = ev.data as {
+              dao_id?: string
               contribution_id: string
               dataset_id: string
               contributor: string
@@ -144,9 +221,12 @@ async function processEvents(exitAfter = false) {
             }
             const contribId = hexToString(d.contribution_id)
             const datasetId = hexToString(d.dataset_id)
-            console.log(`  [ContributionSubmitted] ${contribId}  (dataset: ${datasetId})`)
+            const daoId = d.dao_id ? hexToString(d.dao_id) : undefined
+            console.log(
+              `  [ContributionSubmitted] ${contribId}  (dao: ${daoId ?? "?"}, dataset: ${datasetId})`,
+            )
 
-            await ensureDataset(datasetId)
+            await ensureDataset(datasetId, daoId)
             await db
               .insert(contributions)
               .values({
@@ -164,9 +244,10 @@ async function processEvents(exitAfter = false) {
             totalProcessed++
           }
 
-          // 2. VoteCast ────────────────────────────────────────────────────
+          // 4. VoteCast ────────────────────────────────────────────────────
           else if (ev.type === `${CONTRACT_ADDRESS}::dao_governance::VoteCast`) {
             const d = ev.data as {
+              dao_id?: string
               contribution_id: string
               voter: string
               decision: number
@@ -174,11 +255,14 @@ async function processEvents(exitAfter = false) {
               timestamp: string
             }
             const contribId = hexToString(d.contribution_id)
+            const daoId = d.dao_id ? hexToString(d.dao_id) : undefined
             const decisionStr =
               Number(d.decision) === 0 ? "approve" : Number(d.decision) === 1 ? "reject" : "improve"
-            console.log(`  [VoteCast] ${d.voter} → ${decisionStr} on ${contribId}`)
+            console.log(
+              `  [VoteCast] ${d.voter} → ${decisionStr} on ${contribId} (dao: ${daoId ?? "?"})`,
+            )
 
-            // Upsert member
+            // Upsert global member
             await db
               .insert(members)
               .values({
@@ -187,6 +271,16 @@ async function processEvents(exitAfter = false) {
                 joinedAt: new Date(),
               })
               .onConflictDoNothing()
+
+            // Update DAO membership voting power if dao_id available
+            if (daoId) {
+              await db
+                .update(daoMemberships)
+                .set({ votingPower: Number(d.voting_power) })
+                .where(
+                  and(eq(daoMemberships.daoId, daoId), eq(daoMemberships.memberAddress, d.voter)),
+                )
+            }
 
             // Insert vote (use tx hash as ID — one vote per tx)
             await db
@@ -204,16 +298,20 @@ async function processEvents(exitAfter = false) {
             totalProcessed++
           }
 
-          // 3. ContributionFinalized ─────────────────────────────────────────
+          // 5. ContributionFinalized ─────────────────────────────────────────
           else if (ev.type === `${CONTRACT_ADDRESS}::dao_governance::ContributionFinalized`) {
             const d = ev.data as {
+              dao_id?: string
               contribution_id: string
               approved: boolean
               weight: string
               timestamp: string
             }
             const contribId = hexToString(d.contribution_id)
-            console.log(`  [ContributionFinalized] ${contribId}  approved=${d.approved}`)
+            const daoId = d.dao_id ? hexToString(d.dao_id) : undefined
+            console.log(
+              `  [ContributionFinalized] ${contribId}  approved=${d.approved} (dao: ${daoId ?? "?"})`,
+            )
 
             await db
               .update(contributions)
@@ -241,6 +339,7 @@ async function processEvents(exitAfter = false) {
                     total_contributions?: number
                     voting_power?: number
                   }
+                  // Update global members table
                   await db
                     .update(members)
                     .set({
@@ -249,6 +348,23 @@ async function processEvents(exitAfter = false) {
                       votingPower: Number(memberResource.voting_power ?? 1),
                     })
                     .where(eq(members.address, contributorAddress))
+
+                  // Update DAO membership if daoId is known
+                  if (daoId) {
+                    await db
+                      .update(daoMemberships)
+                      .set({
+                        approvedContributions: Number(memberResource.approved_contributions ?? 0),
+                        totalContributions: Number(memberResource.total_contributions ?? 0),
+                        votingPower: Number(memberResource.voting_power ?? 1),
+                      })
+                      .where(
+                        and(
+                          eq(daoMemberships.daoId, daoId),
+                          eq(daoMemberships.memberAddress, contributorAddress),
+                        ),
+                      )
+                  }
                 } catch (memberErr) {
                   console.warn(
                     `  [ContributionFinalized] Could not fetch Member resource for ${contributorAddress}:`,
@@ -260,9 +376,10 @@ async function processEvents(exitAfter = false) {
             totalProcessed++
           }
 
-          // 4. ReceiptAnchored ──────────────────────────────────────────────
+          // 6. ReceiptAnchored ──────────────────────────────────────────────
           else if (ev.type === `${CONTRACT_ADDRESS}::revenue_splitter::ReceiptAnchored`) {
             const d = ev.data as {
+              dao_id?: string
               dataset_id: string
               shelby_receipt_hash: string
               reader: string
@@ -270,13 +387,13 @@ async function processEvents(exitAfter = false) {
               timestamp: string
             }
             const datasetId = hexToString(d.dataset_id)
-            // receipt hash is raw bytes → store as hex string (no 0x prefix)
+            const daoId = d.dao_id ? hexToString(d.dao_id) : undefined
             const receiptHash = String(d.shelby_receipt_hash).replace(/^0x/, "")
             console.log(
-              `  [ReceiptAnchored] dataset=${datasetId}  reader=${d.reader}  hash=${receiptHash.slice(0, 16)}...`,
+              `  [ReceiptAnchored] dataset=${datasetId} dao=${daoId ?? "?"} reader=${d.reader}  hash=${receiptHash.slice(0, 16)}...`,
             )
 
-            await ensureDataset(datasetId)
+            await ensureDataset(datasetId, daoId)
             await db
               .insert(receipts)
               .values({
@@ -293,7 +410,7 @@ async function processEvents(exitAfter = false) {
             totalProcessed++
           }
 
-          // 5. RevenueDistributed ───────────────────────────────────────────
+          // 7. RevenueDistributed ───────────────────────────────────────────
           else if (ev.type === `${CONTRACT_ADDRESS}::revenue_splitter::RevenueDistributed`) {
             const d = ev.data as { shelby_receipt_hash: string }
             const receiptHash = String(d.shelby_receipt_hash).replace(/^0x/, "")

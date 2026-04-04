@@ -25,9 +25,13 @@ describe("governanceRouter", () => {
   })
 
   it("getStats: veri varken doğru sayar", async () => {
-    await db
-      .insert(datasets)
-      .values({ id: "d1", name: "D1", ownerAddress: "0x1", createdAt: new Date() })
+    await db.insert(datasets).values({
+      id: "d1",
+      daoId: "dao-test",
+      name: "D1",
+      ownerAddress: "0x1",
+      createdAt: new Date(),
+    })
     await db.insert(members).values({ address: "0xm1", votingPower: 5, joinedAt: new Date() })
     await db.insert(members).values({ address: "0xm2", votingPower: 3, joinedAt: new Date() })
     await db.insert(receipts).values({

@@ -41,7 +41,58 @@ export class QuorumAptosClient {
     }
   }
 
-  // ── DAO Governance ──────────────────────────────────────────────────────────
+  // ── DAO Registry ───────────────────────────────────────────────────────────
+
+  /**
+   * Create a new DAO on-chain.
+   * Move signature: create_dao(creator, contract_addr, dao_id, name, treasury,
+   *   voting_window_us, quorum_threshold)
+   */
+  async createDao(
+    signer: AptosAccount,
+    daoId: string,
+    name: string,
+    treasury: string,
+    votingWindowUs: bigint,
+    quorumThreshold: bigint,
+  ): Promise<string> {
+    const txn = await this.aptos.transaction.build.simple({
+      sender: signer.accountAddress,
+      data: {
+        function: `${this.contractAddress}::dao_governance::create_dao`,
+        functionArguments: [
+          this.contractAddress,
+          Array.from(Buffer.from(daoId, "utf8")),
+          Array.from(Buffer.from(name, "utf8")),
+          treasury,
+          votingWindowUs,
+          quorumThreshold,
+        ],
+      },
+    })
+    const result = await this.aptos.signAndSubmitTransaction({ signer, transaction: txn })
+    await this.aptos.waitForTransaction({ transactionHash: result.hash })
+    return result.hash
+  }
+
+  /**
+   * Join a DAO as a member.
+   * Move signature: join_dao(account, contract_addr, dao_id)
+   */
+  async joinDao(signer: AptosAccount, daoId: string): Promise<string> {
+    const txn = await this.aptos.transaction.build.simple({
+      sender: signer.accountAddress,
+      data: {
+        function: `${this.contractAddress}::dao_governance::join_dao`,
+        functionArguments: [this.contractAddress, Array.from(Buffer.from(daoId, "utf8"))],
+      },
+    })
+    const result = await this.aptos.signAndSubmitTransaction({ signer, transaction: txn })
+    await this.aptos.waitForTransaction({ transactionHash: result.hash })
+    return result.hash
+  }
+
+  // ── DAO Governance (backward compatible) ───────────────────────────────────
 
   async registerMember(signer: AptosAccount): Promise<string> {
     const txn = await this.aptos.transaction.build.simple({
@@ -58,11 +109,13 @@ export class QuorumAptosClient {
 
   /**
    * Submit a contribution on-chain.
-   * Move signature: submit_contribution(signer, contract_addr, contribution_id,
-   *   dataset_id, shelby_account, shelby_blob_name, data_hash)
+   * New Move signature includes dao_id:
+   *   submit_contribution(signer, contract_addr, dao_id, contribution_id,
+   *     dataset_id, shelby_account, shelby_blob_name, data_hash)
    */
   async submitContribution(
     signer: AptosAccount,
+    daoId: string,
     contributionId: string,
     datasetId: string,
     shelbyAccount: string,
@@ -75,6 +128,7 @@ export class QuorumAptosClient {
         function: `${this.contractAddress}::dao_governance::submit_contribution`,
         functionArguments: [
           this.contractAddress,
+          Array.from(Buffer.from(daoId, "utf8")),
           Array.from(Buffer.from(contributionId, "utf8")),
           Array.from(Buffer.from(datasetId, "utf8")),
           Array.from(Buffer.from(shelbyAccount, "utf8")),
@@ -115,9 +169,8 @@ export class QuorumAptosClient {
   }
 
   /**
-   * Finalize a contribution after the 48-hour voting window.
-   * Anyone can call this. Move signature:
-   * finalize_contribution(caller, contract_addr, contribution_id)
+   * Finalize a contribution after the voting window closes.
+   * Anyone can call this.
    */
   async finalizeContribution(caller: AptosAccount, contributionId: string): Promise<string> {
     const txn = await this.aptos.transaction.build.simple({
@@ -135,12 +188,12 @@ export class QuorumAptosClient {
   // ── Revenue Splitter ────────────────────────────────────────────────────────
 
   /**
-   * Anchor a Shelby receipt on Aptos immediately after a dataset read.
-   * Move signature: anchor_receipt(reader, contract_addr, dataset_id,
-   *   shelby_receipt_hash, amount)
+   * Anchor a Shelby receipt on Aptos.
+   * Now includes daoId parameter.
    */
   async anchorReceipt(
     reader: AptosAccount,
+    daoId: string,
     datasetId: string,
     shelbyReceiptHash: string, // hex string
     amount: bigint,
@@ -151,6 +204,7 @@ export class QuorumAptosClient {
         function: `${this.contractAddress}::revenue_splitter::anchor_receipt`,
         functionArguments: [
           this.contractAddress,
+          Array.from(Buffer.from(daoId, "utf8")),
           Array.from(Buffer.from(datasetId, "utf8")),
           Array.from(Buffer.from(shelbyReceiptHash, "hex")),
           amount,
@@ -164,13 +218,10 @@ export class QuorumAptosClient {
 
   /**
    * Distribute revenue for a dataset read event.
-   * Uses the server-side signer (APTOS_PRIVATE_KEY in env).
-   * Move signature: distribute_revenue(payer, contract_addr, dataset_id,
-   *   shelby_receipt_hash, amount,
-   *   contributor_addrs, contributor_weights,
-   *   curator_addrs, curator_powers)
+   * Now includes daoId parameter.
    */
   async distributeRevenue(
+    daoId: string,
     datasetId: string,
     shelbyReceiptHash: string, // hex string
     amount: bigint,
@@ -188,6 +239,7 @@ export class QuorumAptosClient {
         function: `${this.contractAddress}::revenue_splitter::distribute_revenue`,
         functionArguments: [
           this.contractAddress,
+          Array.from(Buffer.from(daoId, "utf8")),
           Array.from(Buffer.from(datasetId, "utf8")),
           Array.from(Buffer.from(shelbyReceiptHash, "hex")),
           amount,
@@ -208,6 +260,7 @@ export class QuorumAptosClient {
 
   // ── View ────────────────────────────────────────────────────────────────────
 
+  /** Get global voting power (backward compatible) */
   async getMemberVotingPower(address: string): Promise<number> {
     try {
       const resource = await this.aptos.getAccountResource({
@@ -217,6 +270,55 @@ export class QuorumAptosClient {
       return Number((resource as { voting_power: number }).voting_power)
     } catch {
       return 0 // 0 means not a member yet
+    }
+  }
+
+  /** Get DAO-scoped voting power via view function */
+  async getDaoVotingPower(daoId: string, memberAddress: string): Promise<number> {
+    try {
+      const [result] = await this.aptos.view({
+        payload: {
+          function: `${this.contractAddress}::dao_governance::get_dao_voting_power`,
+          functionArguments: [
+            this.contractAddress,
+            Array.from(Buffer.from(daoId, "utf8")),
+            memberAddress,
+          ],
+        },
+      })
+      return Number(result)
+    } catch {
+      return 0
+    }
+  }
+
+  /** Get DAO member count from on-chain */
+  async getDaoMemberCount(daoId: string): Promise<number> {
+    try {
+      const [result] = await this.aptos.view({
+        payload: {
+          function: `${this.contractAddress}::dao_governance::get_dao_member_count`,
+          functionArguments: [this.contractAddress, Array.from(Buffer.from(daoId, "utf8"))],
+        },
+      })
+      return Number(result)
+    } catch {
+      return 0
+    }
+  }
+
+  /** Get total DAO count from on-chain registry */
+  async getDaoCount(): Promise<number> {
+    try {
+      const [result] = await this.aptos.view({
+        payload: {
+          function: `${this.contractAddress}::dao_governance::get_dao_count`,
+          functionArguments: [this.contractAddress],
+        },
+      })
+      return Number(result)
+    } catch {
+      return 0
     }
   }
 }

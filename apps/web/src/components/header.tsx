@@ -16,6 +16,12 @@ export default function Header() {
             Ecosystem
           </Link>
           <Link
+            to="/daos"
+            className="text-on-surface-variant hover:text-on-surface transition-colors [&.active]:text-primary"
+          >
+            DAOs
+          </Link>
+          <Link
             to="/governance"
             className="text-on-surface-variant hover:text-on-surface transition-colors [&.active]:text-primary"
           >

@@ -1,10 +1,12 @@
 import { contributionRouter } from "./contribution"
+import { daoRouter } from "./dao"
 import { datasetRouter } from "./dataset"
 import { governanceRouter } from "./governance"
 import { revenueRouter } from "./revenue"
 import { voteRouter } from "./vote"
 
 export const appRouter = {
+  dao: daoRouter,
   contribution: contributionRouter,
   dataset: datasetRouter,
   governance: governanceRouter,

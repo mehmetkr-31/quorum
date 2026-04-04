@@ -8,6 +8,13 @@
       "when": 1774563557666,
       "tag": "0000_keen_unicorn",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1775340367972,
+      "tag": "0001_stiff_guardian",
+      "breakpoints": true
     }
   ]
 }

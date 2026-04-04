@@ -18,8 +18,19 @@ async function rpc<T>(path: string, input?: unknown): Promise<T> {
   return res.json() as Promise<T>
 }
 
+interface Dao {
+  id: string
+  name: string
+  slug: string
+  description?: string
+  memberCount?: number
+  datasetCount?: number
+  contributionCount?: number
+}
+
 interface Dataset {
   id: string
+  daoId?: string
   name: string
   description?: string
   contributionCount?: number
@@ -40,8 +51,15 @@ interface Stats {
   totalRevenue: number
 }
 
+interface DaoStats {
+  totalMembers: number
+  totalDatasets: number
+  totalContributions: number
+}
+
 interface LeaderboardMember {
-  address: string
+  address?: string
+  memberAddress?: string
   votingPower: number
   approvedContributions: number
   totalContributions: number
@@ -57,20 +75,91 @@ interface Receipt {
 
 const server = new McpServer({
   name: "quorum-dao",
-  version: "1.0.0",
+  version: "2.0.0",
 })
+
+// ── list_daos ──────────────────────────────────────────────────────────────
+server.tool(
+  "list_daos",
+  "List all DAOs in the Quorum platform. Each DAO is a community that governs its own AI training datasets.",
+  { limit: z.number().min(1).max(100).default(20).optional() },
+  async ({ limit }) => {
+    const daos = await rpc<Dao[]>("dao.list", { limit })
+    const text = daos
+      .map(
+        (d) =>
+          `• [${d.slug}] ${d.name}${d.description ? ` — ${d.description}` : ""}\n  Members: ${d.memberCount ?? 0} | Datasets: ${d.datasetCount ?? 0} | Contributions: ${d.contributionCount ?? 0}`,
+      )
+      .join("\n")
+    return {
+      content: [{ type: "text" as const, text: text || "No DAOs found." }],
+    }
+  },
+)
+
+// ── get_dao ────────────────────────────────────────────────────────────────
+server.tool(
+  "get_dao",
+  "Get details about a specific DAO by slug or ID",
+  { slugOrId: z.string() },
+  async ({ slugOrId }) => {
+    const dao = await rpc<Dao>("dao.get", { slugOrId })
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: [
+            `DAO: ${dao.name} (/${dao.slug})`,
+            dao.description ? `Description: ${dao.description}` : null,
+            `Members: ${dao.memberCount ?? "?"}`,
+            `Datasets: ${dao.datasetCount ?? "?"}`,
+            `Contributions: ${dao.contributionCount ?? "?"}`,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        },
+      ],
+    }
+  },
+)
+
+// ── get_dao_stats ──────────────────────────────────────────────────────────
+server.tool(
+  "get_dao_stats",
+  "Get statistics for a specific DAO: members, datasets, contributions",
+  { daoId: z.string() },
+  async ({ daoId }) => {
+    const stats = await rpc<DaoStats>("dao.getStats", { daoId })
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: [
+            `DAO Statistics:`,
+            `  Members: ${stats.totalMembers}`,
+            `  Datasets: ${stats.totalDatasets}`,
+            `  Contributions: ${stats.totalContributions}`,
+          ].join("\n"),
+        },
+      ],
+    }
+  },
+)
 
 // ── list_datasets ──────────────────────────────────────────────────────────
 server.tool(
   "list_datasets",
-  "List all available AI training datasets in the Quorum DAO marketplace",
-  { limit: z.number().min(1).max(100).default(20).optional() },
-  async ({ limit }) => {
-    const datasets = await rpc<Dataset[]>("dataset.list", { limit })
+  "List AI training datasets, optionally filtered by DAO",
+  {
+    daoId: z.string().optional(),
+    limit: z.number().min(1).max(100).default(20).optional(),
+  },
+  async ({ daoId, limit }) => {
+    const datasets = await rpc<Dataset[]>("dataset.list", { daoId, limit })
     const text = datasets
       .map(
         (d) =>
-          `• [${d.id}] ${d.name}${d.description ? ` — ${d.description}` : ""}\n  Contributions: ${d.contributionCount ?? 0} | Weight: ${d.totalWeight ?? 0}`,
+          `• [${d.id}] ${d.name}${d.description ? ` — ${d.description}` : ""}\n  DAO: ${d.daoId ?? "?"} | Contributions: ${d.contributionCount ?? 0} | Weight: ${d.totalWeight ?? 0}`,
       )
       .join("\n")
     return {
@@ -147,7 +236,7 @@ server.tool(
 // ── get_governance_stats ───────────────────────────────────────────────────
 server.tool(
   "get_governance_stats",
-  "Get overall Quorum DAO statistics: total members, contributions, and revenue",
+  "Get overall Quorum platform statistics: total members, contributions, and revenue across all DAOs",
   {},
   async () => {
     const stats = await rpc<Stats>("governance.getStats")
@@ -156,7 +245,7 @@ server.tool(
         {
           type: "text" as const,
           text: [
-            `DAO Statistics:`,
+            `Platform-wide Statistics:`,
             `  Members: ${stats.totalMembers}`,
             `  Total Contributions: ${stats.totalContributions}`,
             `  Revenue Distributed: ${stats.totalRevenue} APT`,
@@ -170,14 +259,39 @@ server.tool(
 // ── get_leaderboard ────────────────────────────────────────────────────────
 server.tool(
   "get_leaderboard",
-  "Get the DAO member reputation leaderboard ranked by voting power and approved contributions",
+  "Get the global member reputation leaderboard ranked by voting power",
   { limit: z.number().min(1).max(50).default(10).optional() },
   async ({ limit }) => {
     const leaderboard = await rpc<LeaderboardMember[]>("governance.getLeaderboard", { limit })
     const text = leaderboard
       .map(
         (m, i) =>
-          `${i + 1}. ${m.address.slice(0, 10)}...\n   Voting Power: ${m.votingPower} | Approved: ${m.approvedContributions}/${m.totalContributions} | Accuracy: ${m.accuracy}%`,
+          `${i + 1}. ${(m.address ?? m.memberAddress ?? "?").slice(0, 10)}...\n   Voting Power: ${m.votingPower} | Approved: ${m.approvedContributions}/${m.totalContributions} | Accuracy: ${m.accuracy}%`,
+      )
+      .join("\n")
+    return {
+      content: [{ type: "text" as const, text: text || "No members found." }],
+    }
+  },
+)
+
+// ── get_dao_leaderboard ────────────────────────────────────────────────────
+server.tool(
+  "get_dao_leaderboard",
+  "Get the reputation leaderboard for a specific DAO",
+  {
+    daoId: z.string(),
+    limit: z.number().min(1).max(50).default(10).optional(),
+  },
+  async ({ daoId, limit }) => {
+    const leaderboard = await rpc<LeaderboardMember[]>("governance.getDaoLeaderboard", {
+      daoId,
+      limit,
+    })
+    const text = leaderboard
+      .map(
+        (m, i) =>
+          `${i + 1}. ${(m.memberAddress ?? m.address ?? "?").slice(0, 10)}...\n   Voting Power: ${m.votingPower} | Approved: ${m.approvedContributions}/${m.totalContributions} | Accuracy: ${m.accuracy}%`,
       )
       .join("\n")
     return {
@@ -208,10 +322,43 @@ server.tool(
   },
 )
 
+// ── push_to_huggingface ────────────────────────────────────────────────────
+server.tool(
+  "push_to_huggingface",
+  "Push a Quorum dataset to HuggingFace Hub as a JSONL dataset with a proper dataset card",
+  {
+    datasetId: z.string(),
+    repoId: z.string().describe("HuggingFace repo ID in format: username/dataset-name"),
+    hfToken: z
+      .string()
+      .optional()
+      .describe("HuggingFace token (optional if HUGGINGFACE_TOKEN is set server-side)"),
+  },
+  async ({ datasetId, repoId, hfToken }) => {
+    const result = await rpc<{ repoId: string; url: string; recordCount: number }>(
+      "dataset.pushToHub",
+      { datasetId, repoId, hfToken },
+    )
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: [
+            `Successfully pushed to HuggingFace Hub!`,
+            `  Repository: ${result.repoId}`,
+            `  URL: ${result.url}`,
+            `  Records: ${result.recordCount}`,
+          ].join("\n"),
+        },
+      ],
+    }
+  },
+)
+
 async function main() {
   const transport = new StdioServerTransport()
   await server.connect(transport)
-  console.error("Quorum MCP Server running on stdio")
+  console.error("Quorum MCP Server v2 running on stdio (multi-DAO)")
 }
 
 main().catch(console.error)

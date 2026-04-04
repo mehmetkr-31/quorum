@@ -1,6 +1,6 @@
 import { Aptos, AptosConfig, type InputEntryFunctionData, Network } from "@aptos-labs/ts-sdk"
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
@@ -22,6 +22,9 @@ const aptos = new Aptos(
 
 function ContributePage() {
   const { connected, account, signAndSubmitTransaction } = useWallet()
+  const queryClient = useQueryClient()
+
+  const [selectedDaoId, setSelectedDaoId] = useState("")
   const [selectedDatasetId, setSelectedDatasetId] = useState("")
   const [shelbyAccount, setShelbyAccount] = useState("")
   const [file, setFile] = useState<File | null>(null)
@@ -36,9 +39,24 @@ function ContributePage() {
   const [isMember, setIsMember] = useState<boolean | null>(null)
   const [isJoining, setIsJoining] = useState(false)
 
-  const { data: datasets } = useQuery(orpc.dataset.list.queryOptions())
+  // Fetch DAOs list
+  const { data: daos } = useQuery(orpc.dao.list.queryOptions())
+
+  // Fetch datasets filtered by selected DAO
+  const { data: datasets } = useQuery({
+    ...orpc.dataset.list.queryOptions({
+      input: selectedDaoId ? { daoId: selectedDaoId } : undefined,
+    }),
+  })
+
+  // When DAO changes, reset dataset selection
+  useEffect(() => {
+    setSelectedDatasetId("")
+  }, [selectedDaoId])
+
   const submitMutation = useMutation(orpc.contribution.submit.mutationOptions())
   const confirmMutation = useMutation(orpc.contribution.confirmOnChain.mutationOptions())
+  const joinDaoMutation = useMutation(orpc.dao.join.mutationOptions())
 
   // Handle file selection and preview generation
   function handleFileChange(selectedFile: File | null) {
@@ -66,7 +84,6 @@ function ContributePage() {
       const reader = new FileReader()
       reader.onload = (e) => {
         const text = e.target?.result as string
-        // Preview only first 1000 characters
         setPreviewContent(
           text.slice(0, 1000) + (text.length > 1000 ? "\n\n... (truncated for preview)" : ""),
         )
@@ -77,11 +94,15 @@ function ContributePage() {
     }
   }
 
-  // Check if the connected wallet is registered as a DAO Member
+  // Check if the connected wallet is a member of the selected DAO
   useEffect(() => {
     async function checkMembership() {
-      if (!account?.address) return
+      if (!account?.address) {
+        setIsMember(null)
+        return
+      }
       try {
+        // Check on-chain global Member resource
         const resource = await aptos.getAccountResource({
           accountAddress: account.address.toString(),
           resourceType: `${CONTRACT_ADDRESS}::dao_governance::Member`,
@@ -101,18 +122,35 @@ function ContributePage() {
 
   async function handleJoinDAO() {
     if (!connected || !account) return
+    if (!selectedDaoId) {
+      toast.error("Select a DAO first")
+      return
+    }
     setIsJoining(true)
     try {
+      // 1. Join DAO on-chain
       const payload = {
-        function: `${CONTRACT_ADDRESS}::dao_governance::register_member`,
-        functionArguments: [],
+        function: `${CONTRACT_ADDRESS}::dao_governance::join_dao`,
+        functionArguments: [CONTRACT_ADDRESS, Array.from(new TextEncoder().encode(selectedDaoId))],
       }
       const result = await signAndSubmitTransaction({
         data: payload as InputEntryFunctionData,
       })
       await aptos.waitForTransaction({ transactionHash: result.hash })
+
+      // 2. Record membership off-chain
+      await joinDaoMutation.mutateAsync({
+        daoId: selectedDaoId,
+        memberAddress: account.address.toString(),
+      })
+
       setIsMember(true)
       toast.success("Successfully joined the DAO!")
+      queryClient.invalidateQueries({
+        queryKey: orpc.dao.getMembership.queryOptions({
+          input: { daoId: selectedDaoId, memberAddress: account.address.toString() },
+        }).queryKey,
+      })
     } catch (e: unknown) {
       console.error(e)
       toast.error((e as Error).message || "Failed to join DAO")
@@ -123,7 +161,8 @@ function ContributePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!connected || !account || !file || !selectedDatasetId || !shelbyAccount) return
+    if (!connected || !account || !file || !selectedDatasetId || !shelbyAccount || !selectedDaoId)
+      return
 
     setStatus("uploading")
     try {
@@ -145,10 +184,12 @@ function ContributePage() {
 
       setStatus("signing")
 
+      // New signature includes dao_id as first arg after contract_addr
       const payload = {
         function: `${CONTRACT_ADDRESS}::dao_governance::submit_contribution`,
         functionArguments: [
           CONTRACT_ADDRESS,
+          Array.from(new TextEncoder().encode(selectedDaoId)),
           Array.from(new TextEncoder().encode(res.id)),
           Array.from(new TextEncoder().encode(selectedDatasetId)),
           Array.from(new TextEncoder().encode(res.shelbyAccount)),
@@ -177,6 +218,8 @@ function ContributePage() {
     }
   }
 
+  const selectedDao = daos?.find((d) => d.id === selectedDaoId)
+
   return (
     <main className="flex-grow pt-24 pb-24 px-6 dot-grid relative overflow-hidden">
       {/* Background Bloom */}
@@ -190,8 +233,8 @@ function ContributePage() {
             Submit <span className="text-gradient">Contribution</span>
           </h1>
           <p className="text-on-surface-variant text-xl max-w-2xl leading-relaxed font-light">
-            Add raw data to the Quorum dataset and earn future revenue. Your data is hashed,
-            validated, and stored permanently on the Neural Void.
+            Add raw data to a community DAO dataset and earn future revenue. Your data is hashed,
+            validated, and stored permanently on Shelby Protocol.
           </p>
         </header>
 
@@ -263,6 +306,32 @@ function ContributePage() {
           {/* Main Input Area */}
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
             <div className="lg:col-span-2 space-y-6">
+              {/* DAO Selector */}
+              <div className="glass-card rounded-2xl p-8 space-y-4">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="daoId" className="label-sm block">
+                    Target DAO
+                  </label>
+                  {selectedDao && (
+                    <span className="text-xs text-primary font-mono">/{selectedDao.slug}</span>
+                  )}
+                </div>
+                <select
+                  id="daoId"
+                  value={selectedDaoId}
+                  onChange={(e) => setSelectedDaoId(e.target.value)}
+                  required
+                  className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 text-on-surface focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+                >
+                  <option value="">Select a DAO...</option>
+                  {daos?.map((dao) => (
+                    <option key={dao.id} value={dao.id}>
+                      {dao.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Dataset select dropdown */}
               <div className="glass-card rounded-2xl p-8 space-y-4">
                 <label htmlFor="datasetId" className="label-sm block">
@@ -273,9 +342,12 @@ function ContributePage() {
                   value={selectedDatasetId}
                   onChange={(e) => setSelectedDatasetId(e.target.value)}
                   required
-                  className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 text-on-surface focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+                  disabled={!selectedDaoId}
+                  className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 text-on-surface focus:ring-1 focus:ring-primary focus:border-primary transition-all disabled:opacity-50"
                 >
-                  <option value="">Select a dataset...</option>
+                  <option value="">
+                    {selectedDaoId ? "Select a dataset..." : "Select a DAO first..."}
+                  </option>
                   {datasets?.map((ds) => (
                     <option key={ds.id} value={ds.id}>
                       {ds.name}
@@ -392,17 +464,21 @@ function ContributePage() {
                 </div>
                 <div className="p-6 font-mono text-xs flex-grow space-y-4 bg-surface-container-lowest">
                   <div>
-                    <p className="text-tertiary/60 mb-1">{/* // Initialization... */}</p>
-                    <p className="text-on-surface-variant">Protocol: ImageV3.2</p>
-                  </div>
-                  <div>
-                    <p className="text-primary/60 mb-1">DATA_HASH:</p>
-                    <p className="text-on-surface truncate">0x4f8e21c97a53b2d1109a9c...</p>
+                    <p className="text-primary/60 mb-1">DAO:</p>
+                    <p className="text-on-surface truncate">
+                      {selectedDao ? `/${selectedDao.slug}` : "— not selected —"}
+                    </p>
                   </div>
                   <div>
                     <p className="text-secondary/60 mb-1">SHELBY_BLOB:</p>
                     <p className="text-on-surface truncate">
                       {shelbyAccount || "shelby://blob_8821_42af_99x"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-tertiary/60 mb-1">MEMBERSHIP:</p>
+                    <p className={isMember ? "text-teal-400" : "text-outline-variant"}>
+                      {isMember === null ? "checking..." : isMember ? "verified ✓" : "not a member"}
                     </p>
                   </div>
                   <div className="pt-4 border-t border-outline-variant/10">
@@ -442,20 +518,26 @@ function ContributePage() {
             <div className="mb-8 p-6 glass-card rounded-2xl border border-tertiary/20 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-headline font-bold text-tertiary">
-                  Join the DAO to Contribute
+                  {selectedDaoId
+                    ? `Join ${selectedDao?.name ?? "this DAO"} to Contribute`
+                    : "Join a DAO to Contribute"}
                 </h3>
                 <p className="text-sm text-on-surface-variant">
-                  You need to register as a DAO member first.
+                  {selectedDaoId
+                    ? "You need to be a member of this DAO to submit contributions."
+                    : "Select a DAO above, then join it to start contributing."}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={handleJoinDAO}
-                disabled={isJoining || isMember === null}
-                className="px-8 py-3 rounded-xl bg-tertiary/10 border border-tertiary/30 text-tertiary font-bold hover:bg-tertiary/20 transition-all disabled:opacity-50"
-              >
-                {isJoining ? "Joining DAO..." : "Join DAO Now"}
-              </button>
+              {selectedDaoId && (
+                <button
+                  type="button"
+                  onClick={handleJoinDAO}
+                  disabled={isJoining || isMember === null}
+                  className="px-8 py-3 rounded-xl bg-tertiary/10 border border-tertiary/30 text-tertiary font-bold hover:bg-tertiary/20 transition-all disabled:opacity-50"
+                >
+                  {isJoining ? "Joining DAO..." : "Join DAO Now"}
+                </button>
+              )}
             </div>
           )}
 
@@ -476,13 +558,20 @@ function ContributePage() {
               <div>
                 <h4 className="font-headline font-bold text-on-surface">DAO Validation Check</h4>
                 <p className="text-xs text-on-surface-variant">
-                  Your contribution will be reviewed by the Quorum oracle network.
+                  Your contribution will be reviewed by {selectedDao?.name ?? "the selected DAO"}.
                 </p>
               </div>
             </div>
             <button
               type="submit"
-              disabled={status === "uploading" || status === "signing" || !connected || !isMember}
+              disabled={
+                status === "uploading" ||
+                status === "signing" ||
+                !connected ||
+                !isMember ||
+                !selectedDaoId ||
+                !selectedDatasetId
+              }
               className="w-full md:w-auto px-16 py-5 rounded-2xl bg-gradient-primary text-surface font-headline font-black text-xl tracking-tight shadow-[0_0_40px_rgba(173,198,255,0.2)] hover:scale-[1.03] active:scale-95 transition-all disabled:opacity-30 disabled:grayscale"
             >
               {status === "uploading"

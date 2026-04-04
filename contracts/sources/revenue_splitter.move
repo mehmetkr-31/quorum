@@ -10,6 +10,7 @@ module quorum::revenue_splitter {
     // ── Error codes ──────────────────────────────────────────────────────────
     const E_ALREADY_DISTRIBUTED: u64 = 1;
     const E_ZERO_AMOUNT: u64 = 2;
+    const E_RECEIPT_NOT_ANCHORED: u64 = 3;
 
     // ── Revenue split ────────────────────────────────────────────────────────
     /// 70% to contributors, 20% to curators, 10% to treasury
@@ -17,10 +18,9 @@ module quorum::revenue_splitter {
     const CURATOR_BPS: u64 = 20;
 
     // ── Structs ──────────────────────────────────────────────────────────────
-    // Error codes
-    const E_RECEIPT_NOT_ANCHORED: u64 = 3;
 
     struct ReceiptAnchor has store {
+        dao_id: vector<u8>,
         dataset_id: vector<u8>,
         reader: address,
         amount: u64,
@@ -28,6 +28,7 @@ module quorum::revenue_splitter {
     }
 
     struct DistributionRecord has store {
+        dao_id: vector<u8>,
         dataset_id: vector<u8>,
         total_amount: u64,
         timestamp: u64,
@@ -43,7 +44,18 @@ module quorum::revenue_splitter {
 
     // ── Events ───────────────────────────────────────────────────────────────
     #[event]
+    struct ReceiptAnchored has drop, store {
+        dao_id: vector<u8>,
+        dataset_id: vector<u8>,
+        shelby_receipt_hash: vector<u8>,
+        reader: address,
+        amount: u64,
+        timestamp: u64,
+    }
+
+    #[event]
     struct RevenueDistributed has drop, store {
+        dao_id: vector<u8>,
         dataset_id: vector<u8>,
         shelby_receipt_hash: vector<u8>,
         total_amount: u64,
@@ -54,15 +66,6 @@ module quorum::revenue_splitter {
     }
 
     // ── Entry functions ──────────────────────────────────────────────────────
-
-    #[event]
-    struct ReceiptAnchored has drop, store {
-        dataset_id: vector<u8>,
-        shelby_receipt_hash: vector<u8>,
-        reader: address,
-        amount: u64,
-        timestamp: u64,
-    }
 
     public entry fun initialize(account: &signer, treasury: address) {
         let addr = signer::address_of(account);
@@ -76,26 +79,29 @@ module quorum::revenue_splitter {
     }
 
     /// Step 1: anchor a Shelby receipt on-chain immediately when a dataset is read.
-    /// This creates an immutable record of the read event before revenue is distributed.
+    /// Now includes dao_id for multi-DAO tracking.
     public entry fun anchor_receipt(
         reader: &signer,
         contract_addr: address,
+        dao_id: vector<u8>,
         dataset_id: vector<u8>,
         shelby_receipt_hash: vector<u8>,
         amount: u64,
     ) acquires DistributionStore {
         assert!(amount > 0, E_ZERO_AMOUNT);
         let store = borrow_global_mut<DistributionStore>(contract_addr);
-        // Idempotent: don't error if already anchored (re-anchoring is a no-op)
+        // Idempotent: don't error if already anchored
         if (!table::contains(&store.anchors, shelby_receipt_hash)) {
             let now = timestamp::now_microseconds();
             table::add(&mut store.anchors, shelby_receipt_hash, ReceiptAnchor {
+                dao_id,
                 dataset_id,
                 reader: signer::address_of(reader),
                 amount,
                 anchored_at: now,
             });
             event::emit(ReceiptAnchored {
+                dao_id,
                 dataset_id,
                 shelby_receipt_hash,
                 reader: signer::address_of(reader),
@@ -106,12 +112,12 @@ module quorum::revenue_splitter {
     }
 
     /// Distribute revenue for a dataset read event.
-    /// `payer` holds the APT and authorises the split.
-    /// `shelby_receipt_hash` is the unique key — calling twice with the same
-    /// hash aborts to prevent double-payment.
+    /// Now includes dao_id. Treasury address comes from the DistributionStore
+    /// (future: could be overridden per-DAO).
     public entry fun distribute_revenue(
         payer: &signer,
         contract_addr: address,
+        dao_id: vector<u8>,
         dataset_id: vector<u8>,
         shelby_receipt_hash: vector<u8>,
         amount: u64,
@@ -167,12 +173,14 @@ module quorum::revenue_splitter {
 
         let now = timestamp::now_microseconds();
         table::add(&mut store.records, shelby_receipt_hash, DistributionRecord {
+            dao_id,
             dataset_id,
             total_amount: amount,
             timestamp: now,
         });
 
         event::emit(RevenueDistributed {
+            dao_id,
             dataset_id,
             shelby_receipt_hash,
             total_amount: amount,

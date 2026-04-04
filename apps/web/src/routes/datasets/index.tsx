@@ -21,11 +21,13 @@ function DatasetsPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { data: datasets, isLoading } = useQuery(orpc.dataset.list.queryOptions())
+  const { data: daos } = useQuery(orpc.dao.list.queryOptions())
   const createMutation = useMutation(orpc.dataset.create.mutationOptions())
 
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
+  const [selectedDaoId, setSelectedDaoId] = useState("")
 
   // Filter & search state
   const [search, setSearch] = useState("")
@@ -78,8 +80,13 @@ function DatasetsPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) return
+    if (!selectedDaoId) {
+      toast.error("Please select a DAO for this dataset")
+      return
+    }
     try {
       await createMutation.mutateAsync({
+        daoId: selectedDaoId,
         name: name.trim(),
         description: description.trim() || undefined,
         ownerAddress: account?.address.toString() ?? "",
@@ -311,6 +318,28 @@ function DatasetsPage() {
       {showForm && (
         <form onSubmit={handleCreate} className="mb-12 glass-card rounded-xl p-8 space-y-6">
           <h2 className="text-xl font-bold font-headline text-on-surface">Create New Dataset</h2>
+          <div className="space-y-2">
+            <label
+              htmlFor="ds-dao"
+              className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant"
+            >
+              DAO
+            </label>
+            <select
+              id="ds-dao"
+              value={selectedDaoId}
+              onChange={(e) => setSelectedDaoId(e.target.value)}
+              required
+              className="w-full rounded-xl px-4 py-3 outline-none transition-all bg-surface-container-lowest border border-outline-variant/30 text-on-surface focus:border-primary"
+            >
+              <option value="">Select a DAO...</option>
+              {(daos ?? []).map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="space-y-2">
             <label
               htmlFor="ds-name"

@@ -1,4 +1,4 @@
-import { contributions, members, receipts } from "@quorum/db"
+import { contributions, datasets, members, receipts } from "@quorum/db"
 import { and, eq, sql } from "drizzle-orm"
 import { z } from "zod"
 import { publicProcedure } from "../index"
@@ -87,6 +87,15 @@ export const revenueRouter = {
       if (!receipt) throw new Error("Receipt not found")
       if (receipt.distributed) throw new Error("Already distributed")
 
+      // Find which DAO this dataset belongs to
+      const [dataset] = await ctx.db
+        .select({ daoId: datasets.daoId })
+        .from(datasets)
+        .where(eq(datasets.id, receipt.datasetId))
+        .limit(1)
+
+      const daoId = dataset?.daoId ?? "dao-1"
+
       // Gather contributors for this dataset (approved only)
       const contributorRows = await ctx.db
         .select({
@@ -108,6 +117,7 @@ export const revenueRouter = {
       const curatorPowers = curatorRows.map((r) => BigInt(r.votingPower))
 
       const aptosTxHash = await ctx.aptosClient.distributeRevenue(
+        daoId,
         receipt.datasetId,
         receipt.shelbyReceiptHash,
         BigInt(receipt.amount),

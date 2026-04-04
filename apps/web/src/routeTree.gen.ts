@@ -14,7 +14,9 @@ import { Route as VoteIndexRouteImport } from './routes/vote/index'
 import { Route as GovernanceIndexRouteImport } from './routes/governance/index'
 import { Route as EarningsIndexRouteImport } from './routes/earnings/index'
 import { Route as DatasetsIndexRouteImport } from './routes/datasets/index'
+import { Route as DaosIndexRouteImport } from './routes/daos/index'
 import { Route as ContributeIndexRouteImport } from './routes/contribute/index'
+import { Route as DaosSlugRouteImport } from './routes/daos/$slug'
 import { Route as ApiRpcSplatRouteImport } from './routes/api/rpc/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
@@ -43,9 +45,19 @@ const DatasetsIndexRoute = DatasetsIndexRouteImport.update({
   path: '/datasets/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DaosIndexRoute = DaosIndexRouteImport.update({
+  id: '/daos/',
+  path: '/daos/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContributeIndexRoute = ContributeIndexRouteImport.update({
   id: '/contribute/',
   path: '/contribute/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DaosSlugRoute = DaosSlugRouteImport.update({
+  id: '/daos/$slug',
+  path: '/daos/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
@@ -61,7 +73,9 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/daos/$slug': typeof DaosSlugRoute
   '/contribute/': typeof ContributeIndexRoute
+  '/daos/': typeof DaosIndexRoute
   '/datasets/': typeof DatasetsIndexRoute
   '/earnings/': typeof EarningsIndexRoute
   '/governance/': typeof GovernanceIndexRoute
@@ -71,7 +85,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/daos/$slug': typeof DaosSlugRoute
   '/contribute': typeof ContributeIndexRoute
+  '/daos': typeof DaosIndexRoute
   '/datasets': typeof DatasetsIndexRoute
   '/earnings': typeof EarningsIndexRoute
   '/governance': typeof GovernanceIndexRoute
@@ -82,7 +98,9 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/daos/$slug': typeof DaosSlugRoute
   '/contribute/': typeof ContributeIndexRoute
+  '/daos/': typeof DaosIndexRoute
   '/datasets/': typeof DatasetsIndexRoute
   '/earnings/': typeof EarningsIndexRoute
   '/governance/': typeof GovernanceIndexRoute
@@ -94,7 +112,9 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/daos/$slug'
     | '/contribute/'
+    | '/daos/'
     | '/datasets/'
     | '/earnings/'
     | '/governance/'
@@ -104,7 +124,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/daos/$slug'
     | '/contribute'
+    | '/daos'
     | '/datasets'
     | '/earnings'
     | '/governance'
@@ -114,7 +136,9 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/daos/$slug'
     | '/contribute/'
+    | '/daos/'
     | '/datasets/'
     | '/earnings/'
     | '/governance/'
@@ -125,7 +149,9 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DaosSlugRoute: typeof DaosSlugRoute
   ContributeIndexRoute: typeof ContributeIndexRoute
+  DaosIndexRoute: typeof DaosIndexRoute
   DatasetsIndexRoute: typeof DatasetsIndexRoute
   EarningsIndexRoute: typeof EarningsIndexRoute
   GovernanceIndexRoute: typeof GovernanceIndexRoute
@@ -171,11 +197,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DatasetsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/daos/': {
+      id: '/daos/'
+      path: '/daos'
+      fullPath: '/daos/'
+      preLoaderRoute: typeof DaosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/contribute/': {
       id: '/contribute/'
       path: '/contribute'
       fullPath: '/contribute/'
       preLoaderRoute: typeof ContributeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/daos/$slug': {
+      id: '/daos/$slug'
+      path: '/daos/$slug'
+      fullPath: '/daos/$slug'
+      preLoaderRoute: typeof DaosSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/rpc/$': {
@@ -197,7 +237,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DaosSlugRoute: DaosSlugRoute,
   ContributeIndexRoute: ContributeIndexRoute,
+  DaosIndexRoute: DaosIndexRoute,
   DatasetsIndexRoute: DatasetsIndexRoute,
   EarningsIndexRoute: EarningsIndexRoute,
   GovernanceIndexRoute: GovernanceIndexRoute,

@@ -1,6 +1,6 @@
 import { Aptos, AptosConfig, type InputEntryFunctionData, Network } from "@aptos-labs/ts-sdk"
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -88,6 +88,12 @@ function ContributionPreview({ id }: { id: string }) {
 
 function VotePage() {
   const { connected, account, signAndSubmitTransaction } = useWallet()
+  const queryClient = useQueryClient()
+
+  const [selectedDaoId, setSelectedDaoId] = useState("")
+
+  const { data: daos } = useQuery(orpc.dao.list.queryOptions())
+
   const {
     data: pending,
     isLoading,
@@ -97,7 +103,24 @@ function VotePage() {
       input: { status: "pending" },
     }),
   )
+
+  // Filter pending contributions by selected DAO
+  // We need to cross-reference with datasets to know which DAO a contribution belongs to
+  // For now, filter by dataset's daoId if available via the datasets query
+  const { data: datasets } = useQuery({
+    ...orpc.dataset.list.queryOptions({
+      input: selectedDaoId ? { daoId: selectedDaoId } : undefined,
+    }),
+    enabled: !!selectedDaoId,
+  })
+
+  const filteredPending =
+    selectedDaoId && datasets
+      ? pending?.filter((c) => datasets.some((d) => d.id === c.datasetId))
+      : pending
+
   const castMutation = useMutation(orpc.vote.cast.mutationOptions())
+  const joinDaoMutation = useMutation(orpc.dao.join.mutationOptions())
   const { data: voteHistory } = useQuery(orpc.vote.listHistory.queryOptions())
   const [votedIds, setVotedIds] = useState<Set<string>>(new Set())
   const [myVotes, setMyVotes] = useState<Map<string, string>>(new Map())
@@ -140,14 +163,31 @@ function VotePage() {
     if (!connected || !account) return
     setIsJoining(true)
     try {
-      const payload = {
-        function: `${CONTRACT_ADDRESS}::dao_governance::register_member`,
-        functionArguments: [],
+      if (selectedDaoId) {
+        // Join specific DAO on-chain
+        const payload = {
+          function: `${CONTRACT_ADDRESS}::dao_governance::join_dao`,
+          functionArguments: [
+            CONTRACT_ADDRESS,
+            Array.from(new TextEncoder().encode(selectedDaoId)),
+          ],
+        }
+        const result = await signAndSubmitTransaction({ data: payload as InputEntryFunctionData })
+        await aptos.waitForTransaction({ transactionHash: result.hash })
+        await joinDaoMutation.mutateAsync({
+          daoId: selectedDaoId,
+          memberAddress: account.address.toString(),
+        })
+        queryClient.invalidateQueries()
+      } else {
+        // Global register_member (backward compat)
+        const payload = {
+          function: `${CONTRACT_ADDRESS}::dao_governance::register_member`,
+          functionArguments: [],
+        }
+        const result = await signAndSubmitTransaction({ data: payload as InputEntryFunctionData })
+        await aptos.waitForTransaction({ transactionHash: result.hash })
       }
-      const result = await signAndSubmitTransaction({
-        data: payload as InputEntryFunctionData,
-      })
-      await aptos.waitForTransaction({ transactionHash: result.hash })
       setIsMember(true)
       toast.success("Successfully joined the DAO!")
     } catch (e: unknown) {
@@ -280,6 +320,28 @@ function VotePage() {
 
             {/* Nav links */}
             <nav className="space-y-2">
+              {/* DAO Filter */}
+              <div className="mb-4">
+                <label
+                  htmlFor="dao-filter"
+                  className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant/50 mb-2 block"
+                >
+                  Filter by DAO
+                </label>
+                <select
+                  id="dao-filter"
+                  value={selectedDaoId}
+                  onChange={(e) => setSelectedDaoId(e.target.value)}
+                  className="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-xl px-3 py-2 text-xs text-on-surface focus:border-primary focus:outline-none"
+                >
+                  <option value="">All DAOs</option>
+                  {daos?.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <Link
                 to="/"
                 className="flex items-center gap-4 px-6 py-4 text-on-surface-variant hover:text-on-surface transition-all hover:bg-surface-container/50 rounded-xl group"
@@ -370,7 +432,7 @@ function VotePage() {
               </div>
               <div className="flex gap-3">
                 <span className="px-4 py-1.5 rounded-full bg-primary/10 text-primary label-sm !normal-case ghost-border">
-                  {pending?.length ?? 0} PENDING_TASKS
+                  {filteredPending?.length ?? 0} PENDING_TASKS
                 </span>
               </div>
             </div>
@@ -385,16 +447,16 @@ function VotePage() {
             )}
 
             {/* Empty state */}
-            {!isLoading && pending?.length === 0 && (
+            {!isLoading && filteredPending?.length === 0 && (
               <div className="glass-card rounded-xl p-16 text-center text-on-surface-variant border border-outline-variant/20">
                 No contributions pending review.
               </div>
             )}
 
             {/* Next Tasks */}
-            {pending && pending.length > 1 && (
+            {filteredPending && filteredPending.length > 1 && (
               <div className="grid grid-cols-2 gap-8">
-                {pending.slice(1, 4).map((c, i) => (
+                {filteredPending.slice(1, 4).map((c, i) => (
                   <div
                     key={c.id}
                     className="p-8 rounded-2xl glass-card flex items-center gap-6 hover:-translate-y-1 transition-all cursor-pointer border-none"
@@ -417,7 +479,7 @@ function VotePage() {
             )}
 
             {/* Contribution cards */}
-            {pending?.map((c) => {
+            {filteredPending?.map((c) => {
               const isExpired = Date.now() > new Date(c.createdAt).getTime() + 172800000
               return (
                 <div

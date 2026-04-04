@@ -1,6 +1,6 @@
 # Contract Deploy — Status
 
-## ✅ Deployed on Aptos Devnet (2026-03-23)
+## ✅ Deployed on Aptos Devnet (2026-03-23) — v1 (single-DAO)
 
 | Contract | Tx Hash |
 |---|---|
@@ -10,7 +10,124 @@
 
 **Contract Address:** `0x928d7052d85f63b206fab9f837b2c3302813e4798931ff0d78a420611dc20d4e`
 
-Explorer: https://explorer.aptoslabs.com/account/0x928d7052d85f63b206fab9f837b2c3302813e4798931ff0d78a420611dc20d4e?network=devnet
+---
+
+## ⚠️ v2 Re-deploy Required — Multi-DAO Architecture
+
+The contracts have been significantly updated for Phase 3 (multiple DAO instances).
+The v1 contract must be replaced with the new v2 contracts.
+
+### What changed in v2
+
+**`dao_governance.move`:**
+- Added `DAORegistry` — stores all DAO configs
+- Added `DAOMemberStore` — DAO-scoped memberships with per-DAO voting power
+- New entry functions: `create_dao`, `join_dao`
+- `submit_contribution` now takes `dao_id` as parameter
+- `cast_vote` uses DAO-scoped voting power
+- `finalize_contribution` uses DAO's custom quorum threshold
+- All events include `dao_id`
+- New view functions: `get_dao_voting_power`, `get_dao_member_count`, `get_dao_count`
+
+**`revenue_splitter.move`:**
+- `anchor_receipt` and `distribute_revenue` now include `dao_id`
+- Events include `dao_id` for multi-DAO tracking
+
+### Re-deploy Commands (Aptos Testnet/Devnet)
+
+```bash
+# 1. Publish updated contracts
+aptos move publish \
+  --named-addresses quorum=<YOUR_ADDRESS> \
+  --url https://fullnode.testnet.aptoslabs.com/v1 \
+  --gas-unit-price 100 \
+  --max-gas 200000 \
+  --assume-yes
+
+# 2. Initialize governance (creates DAORegistry, ContributionStore, VoteStore, DAOMemberStore)
+aptos move run \
+  --function-id <YOUR_ADDRESS>::dao_governance::initialize \
+  --url https://fullnode.testnet.aptoslabs.com/v1 \
+  --assume-yes
+
+# 3. Initialize revenue splitter (treasury = your address or a multisig)
+aptos move run \
+  --function-id <YOUR_ADDRESS>::revenue_splitter::initialize \
+  --args "address:<TREASURY_ADDRESS>" \
+  --url https://fullnode.testnet.aptoslabs.com/v1 \
+  --assume-yes
+
+# 4. (Optional) Create the default "Genesis DAO" on-chain
+aptos move run \
+  --function-id <YOUR_ADDRESS>::dao_governance::create_dao \
+  --args \
+    "address:<YOUR_ADDRESS>" \
+    "hex:$(echo -n 'dao-1' | xxd -p)" \
+    "hex:$(echo -n 'Quorum Genesis DAO' | xxd -p)" \
+    "address:<TREASURY_ADDRESS>" \
+    "u64:60000000" \
+    "u64:60" \
+  --url https://fullnode.testnet.aptoslabs.com/v1 \
+  --assume-yes
+```
+
+### Fly.io Deployment
+
+Update `flyctl secrets set` with all required env vars:
+
+```bash
+flyctl secrets set \
+  DATABASE_URL="libsql://your-db.turso.io" \
+  DATABASE_AUTH_TOKEN="your-token" \
+  BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
+  BETTER_AUTH_URL="https://your-app.fly.dev" \
+  QUORUM_CONTRACT_ADDRESS="<YOUR_ADDRESS>" \
+  APTOS_NODE_URL="https://fullnode.testnet.aptoslabs.com/v1" \
+  APTOS_PRIVATE_KEY="<SERVER_PRIVATE_KEY>" \
+  SHELBY_BASE_URL="https://api.shelbynet.shelby.xyz/v1" \
+  SHELBY_API_KEY="<KEY>" \
+  SHELBY_NETWORK="SHELBYNET" \
+  VITE_CONTRACT_ADDRESS="<YOUR_ADDRESS>" \
+  VITE_APTOS_NODE_URL="https://fullnode.testnet.aptoslabs.com/v1" \
+  HUGGINGFACE_TOKEN="hf_..."    # Optional — for dataset.pushToHub
+
+flyctl deploy
+```
+
+---
+
+## Database Migration
+
+New tables in v2: `daos`, `dao_memberships`. `datasets` table gets a new `dao_id` column.
+
+### Production (Turso) Migration
+
+```bash
+# Generate migration file (already done locally — see drizzle/0001_stiff_guardian.sql)
+pnpm --filter @quorum/db db:generate
+
+# Apply to production Turso DB
+DATABASE_URL="libsql://..." DATABASE_AUTH_TOKEN="..." pnpm --filter @quorum/db db:migrate
+
+# Seed the default Genesis DAO
+DATABASE_URL="libsql://..." DATABASE_AUTH_TOKEN="..." pnpm seed
+```
+
+### Important: datasets.dao_id is NOT NULL
+
+Existing `datasets` rows without a `dao_id` will need to be updated before migration:
+
+```sql
+-- Run this BEFORE applying the migration if you have existing data:
+-- 1. Insert a default DAO
+INSERT OR IGNORE INTO daos (id, name, slug, owner_address, treasury_address, created_at)
+VALUES ('dao-legacy', 'Legacy DAO', 'legacy', '0x...', '0x...', unixepoch());
+
+-- 2. Backfill all existing datasets to the legacy DAO
+UPDATE datasets SET dao_id = 'dao-legacy' WHERE dao_id IS NULL;
+
+-- 3. Now apply the migration
+```
 
 ---
 
@@ -18,29 +135,4 @@ Explorer: https://explorer.aptoslabs.com/account/0x928d7052d85f63b206fab9f837b2c
 
 Shelbynet (chain_id=113) is running but has **0 user transactions** on-chain.
 The faucet accepts requests and returns tx hashes, but no user transactions are being included in blocks.
-This is a known early-stage issue — re-deploy to Shelbynet once user transactions are enabled.
-
-### Shelbynet deploy commands (when ready)
-
-```bash
-# Fund account
-curl -X POST "https://faucet.shelbynet.shelby.xyz/mint?amount=200000000&address=0x928d7052d85f63b206fab9f837b2c3302813e4798931ff0d78a420611dc20d4e"
-
-# Publish
-aptos move publish \
-  --named-addresses quorum=0x928d7052d85f63b206fab9f837b2c3302813e4798931ff0d78a420611dc20d4e \
-  --url https://api.shelbynet.shelby.xyz/v1 \
-  --gas-unit-price 100 \
-  --max-gas 200000 \
-  --assume-yes
-
-# Initialize
-aptos move run \
-  --function-id 0x928d7052d85f63b206fab9f837b2c3302813e4798931ff0d78a420611dc20d4e::dao_governance::initialize \
-  --url https://api.shelbynet.shelby.xyz/v1 --assume-yes
-
-aptos move run \
-  --function-id 0x928d7052d85f63b206fab9f837b2c3302813e4798931ff0d78a420611dc20d4e::revenue_splitter::initialize \
-  --args "address:0x928d7052d85f63b206fab9f837b2c3302813e4798931ff0d78a420611dc20d4e" \
-  --url https://api.shelbynet.shelby.xyz/v1 --assume-yes
-```
+Re-deploy to Shelbynet once user transactions are enabled — same commands as above but with `--url https://api.shelbynet.shelby.xyz/v1`.

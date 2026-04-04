@@ -12,21 +12,48 @@ module quorum::dao_governance {
     const E_VOTING_CLOSED: u64 = 4;
     const E_ALREADY_FINALIZED: u64 = 5;
     const E_VOTING_STILL_OPEN: u64 = 6;
+    const E_DAO_NOT_FOUND: u64 = 7;
+    const E_DAO_ALREADY_EXISTS: u64 = 8;
+    const E_NOT_DAO_MEMBER: u64 = 9;
 
     // ── Constants ────────────────────────────────────────────────────────────
-    /// 48-hour voting window in microseconds
-    const VOTING_WINDOW_US: u64 = 60_000_000;
-    /// Approval threshold: 60% weighted votes required
-    const QUORUM_THRESHOLD: u64 = 60;
+    /// Default 48-hour voting window in microseconds
+    const DEFAULT_VOTING_WINDOW_US: u64 = 60_000_000;
+    /// Default approval threshold: 60% weighted votes required
+    const DEFAULT_QUORUM_THRESHOLD: u64 = 60;
 
     // ── Structs ──────────────────────────────────────────────────────────────
+
+    /// Global Member resource — still stored on each user's account for
+    /// backward compatibility. Tracks aggregate stats across all DAOs.
     struct Member has key {
         voting_power: u64,
         total_contributions: u64,
         approved_contributions: u64,
     }
 
+    /// Per-DAO configuration and counters
+    struct DAOConfig has store {
+        dao_id: vector<u8>,
+        name: vector<u8>,
+        creator: address,
+        treasury: address,
+        voting_window_us: u64,
+        quorum_threshold: u64,
+        member_count: u64,
+        contribution_count: u64,
+        created_at: u64,
+    }
+
+    /// Per-DAO member record — tracks voting power and contributions within a specific DAO
+    struct DAOMember has store {
+        voting_power: u64,
+        total_contributions: u64,
+        approved_contributions: u64,
+    }
+
     struct Contribution has store {
+        dao_id: vector<u8>,
         dataset_id: vector<u8>,
         contributor: address,
         shelby_account: vector<u8>,
@@ -41,6 +68,18 @@ module quorum::dao_governance {
         voting_deadline: u64,
     }
 
+    /// DAO Registry — stored on the contract deployer's account
+    /// Maps dao_id -> DAOConfig
+    struct DAORegistry has key {
+        daos: Table<vector<u8>, DAOConfig>,
+        dao_count: u64,
+    }
+
+    /// DAO Membership store — (dao_id ++ member_address) -> DAOMember
+    struct DAOMemberStore has key {
+        members: Table<vector<u8>, DAOMember>,
+    }
+
     struct ContributionStore has key {
         contributions: Table<vector<u8>, Contribution>,
     }
@@ -51,8 +90,26 @@ module quorum::dao_governance {
     }
 
     // ── Events ───────────────────────────────────────────────────────────────
+
+    #[event]
+    struct DAOCreated has drop, store {
+        dao_id: vector<u8>,
+        name: vector<u8>,
+        creator: address,
+        treasury: address,
+        timestamp: u64,
+    }
+
+    #[event]
+    struct DAOMemberJoined has drop, store {
+        dao_id: vector<u8>,
+        member: address,
+        timestamp: u64,
+    }
+
     #[event]
     struct ContributionSubmitted has drop, store {
+        dao_id: vector<u8>,
         contribution_id: vector<u8>,
         dataset_id: vector<u8>,
         contributor: address,
@@ -61,6 +118,7 @@ module quorum::dao_governance {
 
     #[event]
     struct VoteCast has drop, store {
+        dao_id: vector<u8>,
         contribution_id: vector<u8>,
         voter: address,
         decision: u8,
@@ -70,6 +128,7 @@ module quorum::dao_governance {
 
     #[event]
     struct ContributionFinalized has drop, store {
+        dao_id: vector<u8>,
         contribution_id: vector<u8>,
         approved: bool,
         weight: u64,
@@ -78,15 +137,26 @@ module quorum::dao_governance {
 
     // ── Entry functions ──────────────────────────────────────────────────────
 
-    /// Deploy: called once by the contract deployer
+    /// Deploy: called once by the contract deployer.
+    /// Sets up global stores (registry, contributions, votes, memberships).
     public entry fun initialize(account: &signer) {
         let addr = signer::address_of(account);
+        if (!exists<DAORegistry>(addr)) {
+            move_to(account, DAORegistry {
+                daos: table::new(),
+                dao_count: 0,
+            });
+        };
+        if (!exists<DAOMemberStore>(addr)) {
+            move_to(account, DAOMemberStore { members: table::new() });
+        };
         if (!exists<ContributionStore>(addr)) {
             move_to(account, ContributionStore { contributions: table::new() });
         };
         if (!exists<VoteStore>(addr)) {
             move_to(account, VoteStore { voter_keys: table::new() });
         };
+        // Backward compat: deployer gets a global Member resource
         if (!exists<Member>(addr)) {
             move_to(account, Member {
                 voting_power: 10,
@@ -96,7 +166,119 @@ module quorum::dao_governance {
         };
     }
 
-    /// Anyone can join the DAO as a member (voting_power starts at 1)
+    /// Create a new DAO in the registry.
+    /// Anyone can create a DAO. The creator is automatically the first member
+    /// with elevated voting power (10).
+    public entry fun create_dao(
+        creator: &signer,
+        contract_addr: address,
+        dao_id: vector<u8>,
+        name: vector<u8>,
+        treasury: address,
+        voting_window_us: u64,
+        quorum_threshold: u64,
+    ) acquires DAORegistry, DAOMemberStore {
+        let addr = signer::address_of(creator);
+        let now = timestamp::now_microseconds();
+
+        // Ensure global Member resource exists
+        if (!exists<Member>(addr)) {
+            move_to(creator, Member {
+                voting_power: 1,
+                total_contributions: 0,
+                approved_contributions: 0,
+            });
+        };
+
+        let registry = borrow_global_mut<DAORegistry>(contract_addr);
+        assert!(!table::contains(&registry.daos, dao_id), E_DAO_ALREADY_EXISTS);
+
+        // Use defaults if zero is passed
+        let window = if (voting_window_us > 0) { voting_window_us } else { DEFAULT_VOTING_WINDOW_US };
+        let threshold = if (quorum_threshold > 0) { quorum_threshold } else { DEFAULT_QUORUM_THRESHOLD };
+
+        table::add(&mut registry.daos, dao_id, DAOConfig {
+            dao_id,
+            name,
+            creator: addr,
+            treasury,
+            voting_window_us: window,
+            quorum_threshold: threshold,
+            member_count: 1,
+            contribution_count: 0,
+            created_at: now,
+        });
+        registry.dao_count = registry.dao_count + 1;
+
+        // Auto-register creator as DAO member with elevated voting power
+        let member_store = borrow_global_mut<DAOMemberStore>(contract_addr);
+        let member_key = make_dao_member_key(dao_id, addr);
+        table::add(&mut member_store.members, member_key, DAOMember {
+            voting_power: 10,
+            total_contributions: 0,
+            approved_contributions: 0,
+        });
+
+        event::emit(DAOCreated {
+            dao_id,
+            name,
+            creator: addr,
+            treasury,
+            timestamp: now,
+        });
+
+        event::emit(DAOMemberJoined {
+            dao_id,
+            member: addr,
+            timestamp: now,
+        });
+    }
+
+    /// Join a specific DAO. Anyone can join. Voting power starts at 1.
+    public entry fun join_dao(
+        account: &signer,
+        contract_addr: address,
+        dao_id: vector<u8>,
+    ) acquires DAORegistry, DAOMemberStore {
+        let addr = signer::address_of(account);
+
+        // Ensure global Member resource exists
+        if (!exists<Member>(addr)) {
+            move_to(account, Member {
+                voting_power: 1,
+                total_contributions: 0,
+                approved_contributions: 0,
+            });
+        };
+
+        let registry = borrow_global<DAORegistry>(contract_addr);
+        assert!(table::contains(&registry.daos, dao_id), E_DAO_NOT_FOUND);
+
+        let member_store = borrow_global_mut<DAOMemberStore>(contract_addr);
+        let member_key = make_dao_member_key(dao_id, addr);
+
+        // Idempotent — don't error if already a member
+        if (!table::contains(&member_store.members, member_key)) {
+            table::add(&mut member_store.members, member_key, DAOMember {
+                voting_power: 1,
+                total_contributions: 0,
+                approved_contributions: 0,
+            });
+
+            // Increment DAO member count
+            let registry_mut = borrow_global_mut<DAORegistry>(contract_addr);
+            let dao = table::borrow_mut(&mut registry_mut.daos, dao_id);
+            dao.member_count = dao.member_count + 1;
+
+            event::emit(DAOMemberJoined {
+                dao_id,
+                member: addr,
+                timestamp: timestamp::now_microseconds(),
+            });
+        };
+    }
+
+    /// Backward-compatible: register as a global member (no DAO scope)
     public entry fun register_member(account: &signer) {
         if (!exists<Member>(signer::address_of(account))) {
             move_to(account, Member {
@@ -107,22 +289,36 @@ module quorum::dao_governance {
         };
     }
 
+    /// Submit a contribution to a specific DAO's dataset.
+    /// Contributor must be a member of the DAO.
     public entry fun submit_contribution(
         contributor: &signer,
         contract_addr: address,
+        dao_id: vector<u8>,
         contribution_id: vector<u8>,
         dataset_id: vector<u8>,
         shelby_account: vector<u8>,
         shelby_blob_name: vector<u8>,
         data_hash: vector<u8>,
-    ) acquires ContributionStore, Member {
+    ) acquires DAORegistry, DAOMemberStore, ContributionStore, Member {
         let addr = signer::address_of(contributor);
         assert!(exists<Member>(addr), E_NOT_MEMBER);
 
-        let now = timestamp::now_microseconds();
-        let store = borrow_global_mut<ContributionStore>(contract_addr);
+        // Verify DAO exists and contributor is a member
+        let registry = borrow_global<DAORegistry>(contract_addr);
+        assert!(table::contains(&registry.daos, dao_id), E_DAO_NOT_FOUND);
+        let dao = table::borrow(&registry.daos, dao_id);
 
+        let member_store_ref = borrow_global<DAOMemberStore>(contract_addr);
+        let member_key = make_dao_member_key(dao_id, addr);
+        assert!(table::contains(&member_store_ref.members, member_key), E_NOT_DAO_MEMBER);
+
+        let now = timestamp::now_microseconds();
+        let voting_window = dao.voting_window_us;
+
+        let store = borrow_global_mut<ContributionStore>(contract_addr);
         table::add(&mut store.contributions, contribution_id, Contribution {
+            dao_id,
             dataset_id,
             contributor: addr,
             shelby_account,
@@ -134,26 +330,40 @@ module quorum::dao_governance {
             reject_power: 0,
             total_power: 0,
             created_at: now,
-            voting_deadline: now + VOTING_WINDOW_US,
+            voting_deadline: now + voting_window,
         });
 
+        // Update global member stats
         let member = borrow_global_mut<Member>(addr);
         member.total_contributions = member.total_contributions + 1;
 
+        // Update DAO-scoped member stats
+        let member_store_mut = borrow_global_mut<DAOMemberStore>(contract_addr);
+        let dao_member = table::borrow_mut(&mut member_store_mut.members, member_key);
+        dao_member.total_contributions = dao_member.total_contributions + 1;
+
+        // Increment DAO contribution count
+        let registry_mut = borrow_global_mut<DAORegistry>(contract_addr);
+        let dao_mut = table::borrow_mut(&mut registry_mut.daos, dao_id);
+        dao_mut.contribution_count = dao_mut.contribution_count + 1;
+
         event::emit(ContributionSubmitted {
+            dao_id,
             contribution_id,
-            dataset_id: *&table::borrow(&store.contributions, contribution_id).dataset_id,
+            dataset_id,
             contributor: addr,
             timestamp: now,
         });
     }
 
+    /// Cast a vote on a contribution. Voter must be a member of the DAO
+    /// that the contribution belongs to.
     public entry fun cast_vote(
         voter: &signer,
         contract_addr: address,
         contribution_id: vector<u8>,
         decision: u8,
-    ) acquires ContributionStore, VoteStore, Member {
+    ) acquires ContributionStore, VoteStore, DAOMemberStore, Member {
         assert!(decision <= 2, E_INVALID_DECISION);
         let addr = signer::address_of(voter);
         assert!(exists<Member>(addr), E_NOT_MEMBER);
@@ -164,13 +374,23 @@ module quorum::dao_governance {
         assert!(contribution.status == 0, E_ALREADY_FINALIZED);
         assert!(now <= contribution.voting_deadline, E_VOTING_CLOSED);
 
+        let dao_id = contribution.dao_id;
+
+        // Verify voter is a member of this contribution's DAO
+        let member_store_ref = borrow_global<DAOMemberStore>(contract_addr);
+        let member_key = make_dao_member_key(dao_id, addr);
+        assert!(table::contains(&member_store_ref.members, member_key), E_NOT_DAO_MEMBER);
+
+        // Use DAO-scoped voting power
+        let dao_member = table::borrow(&member_store_ref.members, member_key);
+        let power = dao_member.voting_power;
+
         // Prevent double-voting
         let vote_store = borrow_global_mut<VoteStore>(contract_addr);
         let voter_key = make_voter_key(addr, contribution_id);
         assert!(!table::contains(&vote_store.voter_keys, voter_key), E_ALREADY_VOTED);
         table::add(&mut vote_store.voter_keys, voter_key, true);
 
-        let power = borrow_global<Member>(addr).voting_power;
         contribution.total_power = contribution.total_power + power;
         if (decision == 0) {
             contribution.approve_power = contribution.approve_power + power;
@@ -179,6 +399,7 @@ module quorum::dao_governance {
         };
 
         event::emit(VoteCast {
+            dao_id,
             contribution_id,
             voter: addr,
             decision,
@@ -187,32 +408,56 @@ module quorum::dao_governance {
         });
     }
 
-    /// Anyone can finalize a contribution after the voting window closes
+    /// Anyone can finalize a contribution after the voting window closes.
+    /// Uses the DAO's quorum threshold.
     public entry fun finalize_contribution(
         _caller: &signer,
         contract_addr: address,
         contribution_id: vector<u8>,
-    ) acquires ContributionStore, Member {
+    ) acquires ContributionStore, DAORegistry, DAOMemberStore, Member {
         let now = timestamp::now_microseconds();
         let store = borrow_global_mut<ContributionStore>(contract_addr);
         let contribution = table::borrow_mut(&mut store.contributions, contribution_id);
         assert!(contribution.status == 0, E_ALREADY_FINALIZED);
         assert!(now > contribution.voting_deadline, E_VOTING_STILL_OPEN);
 
+        let dao_id = contribution.dao_id;
+        let contributor = contribution.contributor;
+
+        // Get DAO-specific quorum threshold
+        let registry = borrow_global<DAORegistry>(contract_addr);
+        let threshold = if (table::contains(&registry.daos, dao_id)) {
+            table::borrow(&registry.daos, dao_id).quorum_threshold
+        } else {
+            DEFAULT_QUORUM_THRESHOLD
+        };
+
         let approved = contribution.total_power > 0 &&
-            (contribution.approve_power * 100 / contribution.total_power) >= QUORUM_THRESHOLD;
+            (contribution.approve_power * 100 / contribution.total_power) >= threshold;
 
         if (approved) {
             contribution.status = 1;
             contribution.weight = contribution.approve_power;
-            let contributor = contribution.contributor;
+
+            // Update global member stats
             if (exists<Member>(contributor)) {
                 let member = borrow_global_mut<Member>(contributor);
                 member.approved_contributions = member.approved_contributions + 1;
-                // Boost voting power for contributors with ≥80% approval rate
                 let rate = member.approved_contributions * 100 / member.total_contributions;
                 if (rate >= 80 && member.voting_power < 100) {
                     member.voting_power = member.voting_power + 1;
+                };
+            };
+
+            // Update DAO-scoped member stats
+            let member_store = borrow_global_mut<DAOMemberStore>(contract_addr);
+            let member_key = make_dao_member_key(dao_id, contributor);
+            if (table::contains(&member_store.members, member_key)) {
+                let dao_member = table::borrow_mut(&mut member_store.members, member_key);
+                dao_member.approved_contributions = dao_member.approved_contributions + 1;
+                let dao_rate = dao_member.approved_contributions * 100 / dao_member.total_contributions;
+                if (dao_rate >= 80 && dao_member.voting_power < 100) {
+                    dao_member.voting_power = dao_member.voting_power + 1;
                 };
             };
         } else {
@@ -220,6 +465,7 @@ module quorum::dao_governance {
         };
 
         event::emit(ContributionFinalized {
+            dao_id,
             contribution_id,
             approved,
             weight: contribution.weight,
@@ -228,16 +474,63 @@ module quorum::dao_governance {
     }
 
     // ── View functions ───────────────────────────────────────────────────────
+
+    /// Get global voting power (backward compatible)
     #[view]
     public fun get_voting_power(member_addr: address): u64 acquires Member {
         if (exists<Member>(member_addr)) borrow_global<Member>(member_addr).voting_power
         else 0
     }
 
+    /// Get DAO-scoped voting power for a member
+    #[view]
+    public fun get_dao_voting_power(
+        contract_addr: address,
+        dao_id: vector<u8>,
+        member_addr: address,
+    ): u64 acquires DAOMemberStore {
+        let member_store = borrow_global<DAOMemberStore>(contract_addr);
+        let member_key = make_dao_member_key(dao_id, member_addr);
+        if (table::contains(&member_store.members, member_key)) {
+            table::borrow(&member_store.members, member_key).voting_power
+        } else {
+            0
+        }
+    }
+
+    /// Get DAO member count
+    #[view]
+    public fun get_dao_member_count(
+        contract_addr: address,
+        dao_id: vector<u8>,
+    ): u64 acquires DAORegistry {
+        let registry = borrow_global<DAORegistry>(contract_addr);
+        if (table::contains(&registry.daos, dao_id)) {
+            table::borrow(&registry.daos, dao_id).member_count
+        } else {
+            0
+        }
+    }
+
+    /// Get total number of DAOs
+    #[view]
+    public fun get_dao_count(contract_addr: address): u64 acquires DAORegistry {
+        borrow_global<DAORegistry>(contract_addr).dao_count
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
+
     fun make_voter_key(voter: address, contribution_id: vector<u8>): vector<u8> {
         let key = std::bcs::to_bytes(&voter);
         vector::append(&mut key, contribution_id);
+        key
+    }
+
+    /// Composite key: dao_id ++ BCS(member_address)
+    fun make_dao_member_key(dao_id: vector<u8>, member: address): vector<u8> {
+        let key = dao_id;
+        let addr_bytes = std::bcs::to_bytes(&member);
+        vector::append(&mut key, addr_bytes);
         key
     }
 }

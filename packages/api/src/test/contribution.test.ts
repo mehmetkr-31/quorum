@@ -22,6 +22,7 @@ describe("contributionRouter", () => {
 
     await db.insert(datasets).values({
       id: DATASET_ID,
+      daoId: "dao-test",
       name: "Test Dataset",
       ownerAddress: "0xowner",
       createdAt: new Date(),

@@ -124,6 +124,7 @@ Revenue automatically split to all approved contributors
 | **Database** | SQLite / Turso + Drizzle ORM |
 | **Storage** | Shelby Protocol |
 | **Blockchain** | Aptos (`@aptos-labs/ts-sdk`), Move smart contracts |
+| **AI Integration** | MCP server + HuggingFace Hub push |
 | **Monorepo** | Turborepo + pnpm workspaces |
 | **Linting** | Biome |
 | **Tests** | Vitest (37 tests) |
@@ -327,8 +328,8 @@ quorum/
 - [x] Quorum MCP server: AI agents can query datasets, contributions, governance stats
 - [x] HuggingFace-compatible export: `dataset.export` → JSONL format
 - [x] Reputation leaderboard: voter accuracy % ranked by voting power
-- [ ] Multiple DAO instances (any community can launch a dataset DAO)
-- [ ] HuggingFace Hub direct push integration
+- [x] Multiple DAO instances (any community can launch a dataset DAO)
+- [x] HuggingFace Hub direct push integration
 - **Milestone**: AI agents can read and interact with Quorum datasets via MCP ✅
 
 ---

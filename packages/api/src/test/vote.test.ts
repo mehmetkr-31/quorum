@@ -19,9 +19,13 @@ describe("voteRouter", () => {
     await setupTestSchema(client)
     ctx = createMockContext(db)
 
-    await db
-      .insert(datasets)
-      .values({ id: "ds-1", name: "Test", ownerAddress: "0xowner", createdAt: new Date() })
+    await db.insert(datasets).values({
+      id: "ds-1",
+      daoId: "dao-test",
+      name: "Test",
+      ownerAddress: "0xowner",
+      createdAt: new Date(),
+    })
 
     const result = await call(
       contributionRouter.submit,
