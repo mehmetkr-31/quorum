@@ -45,6 +45,8 @@ function DaoDetailPage() {
 
   const joinMutation = useMutation(orpc.dao.join.mutationOptions())
   const createDatasetMutation = useMutation(orpc.dataset.create.mutationOptions())
+  const createProposalMutation = useMutation(orpc.proposal.create.mutationOptions())
+  const voteProposalMutation = useMutation(orpc.proposal.vote.mutationOptions())
 
   const [showDatasetForm, setShowDatasetForm] = useState(false)
   const [datasetName, setDatasetName] = useState("")
@@ -52,6 +54,24 @@ function DaoDetailPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "datasets" | "members" | "governance">(
     "overview",
   )
+  const [showProposalForm, setShowProposalForm] = useState(false)
+  const [proposalTitle, setProposalTitle] = useState("")
+  const [proposalDescription, setProposalDescription] = useState("")
+  const [proposalType, setProposalType] = useState<0 | 1 | 2>(2)
+  // ParameterChange payload fields
+  const [newQuorumThreshold, setNewQuorumThreshold] = useState("")
+  const [newVotingWindowH, setNewVotingWindowH] = useState("")
+
+  // Proposals for this DAO
+  const { data: proposalList } = useQuery({
+    ...orpc.proposal.list.queryOptions({ input: { daoId: dao?.id ?? "" } }),
+    enabled: !!dao?.id,
+  })
+
+  const { data: proposalStats } = useQuery({
+    ...orpc.proposal.getStats.queryOptions({ input: { daoId: dao?.id ?? "" } }),
+    enabled: !!dao?.id,
+  })
 
   const handleJoin = async () => {
     if (!dao || !account) return
@@ -95,6 +115,63 @@ function DaoDetailPage() {
       })
     } catch (e: unknown) {
       toast.error((e as Error).message || "Failed to create dataset")
+    }
+  }
+
+  const handleCreateProposal = async () => {
+    if (!dao || !account) return
+    if (!proposalTitle.trim()) {
+      toast.error("Title required")
+      return
+    }
+
+    const payload: Record<string, unknown> = {}
+    if (proposalType === 0) {
+      if (newQuorumThreshold) payload.quorumThreshold = Number(newQuorumThreshold)
+      if (newVotingWindowH) payload.votingWindowSeconds = Number(newVotingWindowH) * 3600
+    }
+
+    try {
+      await createProposalMutation.mutateAsync({
+        daoId: dao.id,
+        proposerAddress: account.address.toString(),
+        proposalType,
+        title: proposalTitle.trim(),
+        description: proposalDescription.trim(),
+        payload,
+      })
+      toast.success("Proposal created!")
+      setProposalTitle("")
+      setProposalDescription("")
+      setShowProposalForm(false)
+      queryClient.invalidateQueries({
+        queryKey: orpc.proposal.list.queryOptions({ input: { daoId: dao.id } }).queryKey,
+      })
+    } catch (e: unknown) {
+      toast.error((e as Error).message || "Failed to create proposal")
+    }
+  }
+
+  const handleVoteProposal = async (proposalId: string, support: boolean) => {
+    if (!account) {
+      toast.error("Connect wallet to vote")
+      return
+    }
+    // In production: sign & submit on-chain first, get tx hash, then call API
+    const mockTxHash = "0x" + "0".repeat(64)
+    try {
+      await voteProposalMutation.mutateAsync({
+        proposalId,
+        voterAddress: account.address.toString(),
+        support,
+        aptosTxHash: mockTxHash,
+      })
+      toast.success(support ? "Voted: For" : "Voted: Against")
+      queryClient.invalidateQueries({
+        queryKey: orpc.proposal.list.queryOptions({ input: { daoId: dao?.id ?? "" } }).queryKey,
+      })
+    } catch (e: unknown) {
+      toast.error((e as Error).message || "Failed to vote")
     }
   }
 
@@ -456,35 +533,265 @@ function DaoDetailPage() {
         )}
 
         {activeTab === "governance" && (
-          <div className="text-center py-16">
-            <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-4 block">
-              how_to_vote
-            </span>
-            <p className="text-on-surface-variant/60 text-sm mb-2">DAO governance settings</p>
-            <div className="inline-flex flex-col gap-3 text-left p-6 rounded-2xl border border-outline-variant/15 bg-surface-container/30 text-sm">
-              <div className="flex items-center gap-3">
-                <span className="text-on-surface-variant/50 w-40">Voting Window</span>
-                <span className="font-bold text-on-surface">
-                  {Math.round(dao.votingWindowSeconds / 3600)}h
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-on-surface-variant/50 w-40">Quorum Threshold</span>
-                <span className="font-bold text-on-surface">{dao.quorumThreshold}%</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-on-surface-variant/50 w-40">Treasury</span>
-                <span className="font-mono text-xs text-on-surface">
-                  {dao.treasuryAddress.slice(0, 10)}...{dao.treasuryAddress.slice(-6)}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-on-surface-variant/50 w-40">Owner</span>
-                <span className="font-mono text-xs text-on-surface">
-                  {dao.ownerAddress.slice(0, 10)}...{dao.ownerAddress.slice(-6)}
-                </span>
-              </div>
+          <div>
+            {/* DAO Settings Row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+              {[
+                { label: "Quorum", value: `${dao.quorumThreshold}%` },
+                { label: "Voting Window", value: `${Math.round(dao.votingWindowSeconds / 3600)}h` },
+                { label: "Proposals", value: proposalStats?.total ?? 0 },
+                { label: "Active", value: proposalStats?.active ?? 0 },
+              ].map((s) => (
+                <div
+                  key={s.label}
+                  className="p-4 rounded-xl border border-outline-variant/15 bg-surface-container/40 text-center"
+                >
+                  <div className="text-xl font-bold text-on-surface">{s.value}</div>
+                  <div className="text-xs text-on-surface-variant/50 mt-1">{s.label}</div>
+                </div>
+              ))}
             </div>
+
+            {/* Create proposal button */}
+            {connected && membership && (
+              <div className="mb-6">
+                {showProposalForm ? (
+                  <div className="p-5 rounded-2xl border border-outline-variant/20 bg-surface-container/60 space-y-4">
+                    <h4 className="font-bold text-on-surface">New Proposal</h4>
+                    {/* Type selector */}
+                    <div className="flex gap-2">
+                      {[
+                        { value: 2, label: "Text" },
+                        { value: 0, label: "Parameter Change" },
+                        { value: 1, label: "Treasury Spend" },
+                      ].map((t) => (
+                        <button
+                          key={t.value}
+                          type="button"
+                          onClick={() => setProposalType(t.value as 0 | 1 | 2)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                            proposalType === t.value
+                              ? "bg-primary text-on-primary"
+                              : "border border-outline-variant/20 text-on-surface-variant hover:bg-surface-container"
+                          }`}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="proposal-title"
+                        className="block text-xs font-bold text-on-surface-variant mb-1 uppercase tracking-wider"
+                      >
+                        Title
+                      </label>
+                      <input
+                        id="proposal-title"
+                        value={proposalTitle}
+                        onChange={(e) => setProposalTitle(e.target.value)}
+                        placeholder="Proposal title..."
+                        className="w-full px-4 py-2.5 rounded-xl bg-surface-container-high border border-outline-variant/20 text-on-surface focus:border-primary focus:outline-none text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="proposal-desc"
+                        className="block text-xs font-bold text-on-surface-variant mb-1 uppercase tracking-wider"
+                      >
+                        Description
+                      </label>
+                      <textarea
+                        id="proposal-desc"
+                        value={proposalDescription}
+                        onChange={(e) => setProposalDescription(e.target.value)}
+                        placeholder="Describe the proposal..."
+                        rows={3}
+                        className="w-full px-4 py-2.5 rounded-xl bg-surface-container-high border border-outline-variant/20 text-on-surface focus:border-primary focus:outline-none text-sm resize-none"
+                      />
+                    </div>
+
+                    {proposalType === 0 && (
+                      <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-surface-container/30 border border-primary/10">
+                        <div>
+                          <label
+                            htmlFor="new-quorum"
+                            className="block text-xs text-on-surface-variant mb-1"
+                          >
+                            New Quorum % (optional)
+                          </label>
+                          <input
+                            id="new-quorum"
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={newQuorumThreshold}
+                            onChange={(e) => setNewQuorumThreshold(e.target.value)}
+                            placeholder={String(dao.quorumThreshold)}
+                            className="w-full px-3 py-2 rounded-lg bg-surface-container-high border border-outline-variant/20 text-on-surface text-sm focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="new-window"
+                            className="block text-xs text-on-surface-variant mb-1"
+                          >
+                            New Window Hours (optional)
+                          </label>
+                          <input
+                            id="new-window"
+                            type="number"
+                            min="1"
+                            value={newVotingWindowH}
+                            onChange={(e) => setNewVotingWindowH(e.target.value)}
+                            placeholder={String(Math.round(dao.votingWindowSeconds / 3600))}
+                            className="w-full px-3 py-2 rounded-lg bg-surface-container-high border border-outline-variant/20 text-on-surface text-sm focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={handleCreateProposal}
+                        disabled={createProposalMutation.isPending}
+                        className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold hover:shadow-lg transition-all disabled:opacity-50"
+                      >
+                        {createProposalMutation.isPending ? "Submitting..." : "Submit Proposal"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowProposalForm(false)}
+                        className="px-5 py-2.5 rounded-xl border border-outline-variant/20 text-on-surface-variant text-sm hover:bg-surface-container transition-all"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowProposalForm(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-outline-variant/20 text-on-surface-variant text-sm font-bold hover:bg-surface-container hover:border-primary/30 transition-all"
+                  >
+                    <span className="material-symbols-outlined text-base">add</span>
+                    New Proposal
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Proposal List */}
+            {(proposalList ?? []).length === 0 ? (
+              <div className="text-center py-16">
+                <span className="material-symbols-outlined text-5xl text-on-surface-variant/30 mb-4 block">
+                  how_to_vote
+                </span>
+                <p className="text-on-surface-variant/60 text-sm">
+                  No proposals yet. DAO members can create proposals to change governance parameters
+                  or allocate treasury funds.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {(proposalList ?? []).map((p) => {
+                  const totalVP = p.totalPower
+                  const yesPercent = totalVP > 0 ? Math.round((p.yesPower / totalVP) * 100) : 0
+                  const isActive = p.status === "active" && new Date() <= new Date(p.votingDeadline)
+                  const typeLabel =
+                    p.proposalType === 0
+                      ? "Parameter Change"
+                      : p.proposalType === 1
+                        ? "Treasury Spend"
+                        : "Text"
+                  const statusColors: Record<string, string> = {
+                    active: "text-primary bg-primary/10",
+                    passed: "text-teal-400 bg-teal-400/10",
+                    rejected: "text-error bg-error/10",
+                    executed: "text-secondary bg-secondary/10",
+                  }
+
+                  return (
+                    <div
+                      key={p.id}
+                      className="p-5 rounded-2xl border border-outline-variant/15 bg-surface-container/40"
+                    >
+                      <div className="flex items-start justify-between gap-4 mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span
+                              className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${statusColors[p.status] ?? ""}`}
+                            >
+                              {p.status}
+                            </span>
+                            <span className="text-[10px] text-on-surface-variant/40 uppercase font-bold">
+                              {typeLabel}
+                            </span>
+                          </div>
+                          <h4 className="text-base font-bold text-on-surface">{p.title}</h4>
+                          {p.description && (
+                            <p className="text-xs text-on-surface-variant/60 mt-1 line-clamp-2">
+                              {p.description}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <div className="text-xs text-on-surface-variant/40">
+                            {new Date(p.votingDeadline) > new Date()
+                              ? `Ends ${new Date(p.votingDeadline).toLocaleDateString()}`
+                              : `Ended ${new Date(p.votingDeadline).toLocaleDateString()}`}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Vote bar */}
+                      <div className="mb-3">
+                        <div className="flex justify-between text-xs text-on-surface-variant/50 mb-1">
+                          <span>For: {yesPercent}%</span>
+                          <span>Against: {100 - yesPercent}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-surface-container-high overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-teal-400 transition-all"
+                            style={{ width: `${yesPercent}%` }}
+                          />
+                        </div>
+                        <div className="text-xs text-on-surface-variant/40 mt-1">
+                          {totalVP} total voting power
+                        </div>
+                      </div>
+
+                      {/* Vote buttons */}
+                      {isActive && connected && membership && (
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleVoteProposal(p.id, true)}
+                            disabled={voteProposalMutation.isPending}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-400/10 text-teal-400 text-xs font-bold hover:bg-teal-400/20 transition-colors disabled:opacity-50"
+                          >
+                            <span className="material-symbols-outlined text-sm">thumb_up</span>
+                            For
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleVoteProposal(p.id, false)}
+                            disabled={voteProposalMutation.isPending}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error/10 text-error text-xs font-bold hover:bg-error/20 transition-colors disabled:opacity-50"
+                          >
+                            <span className="material-symbols-outlined text-sm">thumb_down</span>
+                            Against
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>

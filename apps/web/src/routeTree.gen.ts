@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VoteIndexRouteImport } from './routes/vote/index'
+import { Route as StakingIndexRouteImport } from './routes/staking/index'
 import { Route as GovernanceIndexRouteImport } from './routes/governance/index'
 import { Route as EarningsIndexRouteImport } from './routes/earnings/index'
 import { Route as DatasetsIndexRouteImport } from './routes/datasets/index'
@@ -28,6 +29,11 @@ const IndexRoute = IndexRouteImport.update({
 const VoteIndexRoute = VoteIndexRouteImport.update({
   id: '/vote/',
   path: '/vote/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StakingIndexRoute = StakingIndexRouteImport.update({
+  id: '/staking/',
+  path: '/staking/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GovernanceIndexRoute = GovernanceIndexRouteImport.update({
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/datasets/': typeof DatasetsIndexRoute
   '/earnings/': typeof EarningsIndexRoute
   '/governance/': typeof GovernanceIndexRoute
+  '/staking/': typeof StakingIndexRoute
   '/vote/': typeof VoteIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/datasets': typeof DatasetsIndexRoute
   '/earnings': typeof EarningsIndexRoute
   '/governance': typeof GovernanceIndexRoute
+  '/staking': typeof StakingIndexRoute
   '/vote': typeof VoteIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   '/datasets/': typeof DatasetsIndexRoute
   '/earnings/': typeof EarningsIndexRoute
   '/governance/': typeof GovernanceIndexRoute
+  '/staking/': typeof StakingIndexRoute
   '/vote/': typeof VoteIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
@@ -118,6 +127,7 @@ export interface FileRouteTypes {
     | '/datasets/'
     | '/earnings/'
     | '/governance/'
+    | '/staking/'
     | '/vote/'
     | '/api/auth/$'
     | '/api/rpc/$'
@@ -130,6 +140,7 @@ export interface FileRouteTypes {
     | '/datasets'
     | '/earnings'
     | '/governance'
+    | '/staking'
     | '/vote'
     | '/api/auth/$'
     | '/api/rpc/$'
@@ -142,6 +153,7 @@ export interface FileRouteTypes {
     | '/datasets/'
     | '/earnings/'
     | '/governance/'
+    | '/staking/'
     | '/vote/'
     | '/api/auth/$'
     | '/api/rpc/$'
@@ -155,6 +167,7 @@ export interface RootRouteChildren {
   DatasetsIndexRoute: typeof DatasetsIndexRoute
   EarningsIndexRoute: typeof EarningsIndexRoute
   GovernanceIndexRoute: typeof GovernanceIndexRoute
+  StakingIndexRoute: typeof StakingIndexRoute
   VoteIndexRoute: typeof VoteIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiRpcSplatRoute: typeof ApiRpcSplatRoute
@@ -174,6 +187,13 @@ declare module '@tanstack/react-router' {
       path: '/vote'
       fullPath: '/vote/'
       preLoaderRoute: typeof VoteIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/staking/': {
+      id: '/staking/'
+      path: '/staking'
+      fullPath: '/staking/'
+      preLoaderRoute: typeof StakingIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/governance/': {
@@ -243,6 +263,7 @@ const rootRouteChildren: RootRouteChildren = {
   DatasetsIndexRoute: DatasetsIndexRoute,
   EarningsIndexRoute: EarningsIndexRoute,
   GovernanceIndexRoute: GovernanceIndexRoute,
+  StakingIndexRoute: StakingIndexRoute,
   VoteIndexRoute: VoteIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiRpcSplatRoute: ApiRpcSplatRoute,

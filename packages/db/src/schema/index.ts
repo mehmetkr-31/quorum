@@ -32,7 +32,7 @@ export const daos = sqliteTable("daos", {
 })
 
 // ---------------------------------------------------------------------------
-// DAO Memberships — a user can be a member of multiple DAOs with different voting power
+// DAO Memberships — a user can be a member of multiple DAOs
 // ---------------------------------------------------------------------------
 export const daoMemberships = sqliteTable("dao_memberships", {
   id: text("id").primaryKey(),
@@ -47,6 +47,78 @@ export const daoMemberships = sqliteTable("dao_memberships", {
     .notNull()
     .default("member"),
   joinedAt: integer("joined_at", { mode: "timestamp" }).notNull(),
+})
+
+// ---------------------------------------------------------------------------
+// Governance Proposals
+// ---------------------------------------------------------------------------
+export const proposals = sqliteTable("proposals", {
+  id: text("id").primaryKey(),
+  daoId: text("dao_id")
+    .notNull()
+    .references(() => daos.id),
+  proposerAddress: text("proposer_address").notNull(),
+  /** 0=ParameterChange, 1=TreasurySpend, 2=Text */
+  proposalType: integer("proposal_type").notNull().default(2),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  /** JSON-encoded payload */
+  payload: text("payload").notNull().default("{}"),
+  /** active | passed | rejected | executed */
+  status: text("status", { enum: ["active", "passed", "rejected", "executed"] })
+    .notNull()
+    .default("active"),
+  yesPower: integer("yes_power").notNull().default(0),
+  noPower: integer("no_power").notNull().default(0),
+  totalPower: integer("total_power").notNull().default(0),
+  aptosTxHash: text("aptos_tx_hash"),
+  votingDeadline: integer("voting_deadline", { mode: "timestamp" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+})
+
+// ---------------------------------------------------------------------------
+// Proposal Votes — who voted on which proposal
+// ---------------------------------------------------------------------------
+export const proposalVotes = sqliteTable("proposal_votes", {
+  id: text("id").primaryKey(),
+  proposalId: text("proposal_id")
+    .notNull()
+    .references(() => proposals.id),
+  voterAddress: text("voter_address").notNull(),
+  support: integer("support", { mode: "boolean" }).notNull(),
+  votingPower: integer("voting_power").notNull(),
+  aptosTxHash: text("aptos_tx_hash").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+})
+
+// ---------------------------------------------------------------------------
+// QRM Staking — track staked tokens and boost tiers
+// ---------------------------------------------------------------------------
+export const stakes = sqliteTable("stakes", {
+  id: text("id").primaryKey(),
+  stakerAddress: text("staker_address").notNull().unique(),
+  amount: integer("amount").notNull(), // in QRM base units (8 decimals)
+  /** 0=30d (1.5x), 1=90d (2x), 2=180d (3x) */
+  tier: integer("tier").notNull().default(0),
+  boostBps: integer("boost_bps").notNull().default(150),
+  stakedAt: integer("staked_at", { mode: "timestamp" }).notNull(),
+  unlockAt: integer("unlock_at", { mode: "timestamp" }).notNull(),
+  aptosTxHash: text("aptos_tx_hash"),
+})
+
+// ---------------------------------------------------------------------------
+// Delegations — voting power delegation
+// ---------------------------------------------------------------------------
+export const delegations = sqliteTable("delegations", {
+  id: text("id").primaryKey(),
+  daoId: text("dao_id")
+    .notNull()
+    .references(() => daos.id),
+  delegatorAddress: text("delegator_address").notNull(),
+  delegateeAddress: text("delegatee_address").notNull(),
+  delegatedPower: integer("delegated_power").notNull(),
+  aptosTxHash: text("aptos_tx_hash"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 })
 
 // ---------------------------------------------------------------------------
@@ -134,6 +206,14 @@ export type Dao = typeof daos.$inferSelect
 export type NewDao = typeof daos.$inferInsert
 export type DaoMembership = typeof daoMemberships.$inferSelect
 export type NewDaoMembership = typeof daoMemberships.$inferInsert
+export type Proposal = typeof proposals.$inferSelect
+export type NewProposal = typeof proposals.$inferInsert
+export type ProposalVote = typeof proposalVotes.$inferSelect
+export type NewProposalVote = typeof proposalVotes.$inferInsert
+export type Stake = typeof stakes.$inferSelect
+export type NewStake = typeof stakes.$inferInsert
+export type Delegation = typeof delegations.$inferSelect
+export type NewDelegation = typeof delegations.$inferInsert
 export type Dataset = typeof datasets.$inferSelect
 export type NewDataset = typeof datasets.$inferInsert
 export type Member = typeof members.$inferSelect

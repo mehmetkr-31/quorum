@@ -321,4 +321,222 @@ export class QuorumAptosClient {
       return 0
     }
   }
+
+  // ── Phase 4: Governance Proposals ──────────────────────────────────────────
+
+  /**
+   * Create a governance proposal on-chain.
+   * proposal_type: 0=ParameterChange, 1=TreasurySpend, 2=Text
+   */
+  async createProposal(
+    signer: AptosAccount,
+    daoId: string,
+    proposalId: string,
+    proposalType: 0 | 1 | 2,
+    title: string,
+    description: string,
+    payload: Uint8Array,
+  ): Promise<string> {
+    const txn = await this.aptos.transaction.build.simple({
+      sender: signer.accountAddress,
+      data: {
+        function: `${this.contractAddress}::dao_governance::create_proposal`,
+        functionArguments: [
+          this.contractAddress,
+          Array.from(Buffer.from(daoId, "utf8")),
+          Array.from(Buffer.from(proposalId, "utf8")),
+          proposalType,
+          Array.from(Buffer.from(title, "utf8")),
+          Array.from(Buffer.from(description, "utf8")),
+          Array.from(payload),
+        ],
+      },
+    })
+    const result = await this.aptos.signAndSubmitTransaction({ signer, transaction: txn })
+    await this.aptos.waitForTransaction({ transactionHash: result.hash })
+    return result.hash
+  }
+
+  /**
+   * Vote on a governance proposal.
+   * support: true = yes/for, false = no/against
+   */
+  async voteOnProposal(
+    signer: AptosAccount,
+    proposalId: string,
+    support: boolean,
+  ): Promise<string> {
+    const txn = await this.aptos.transaction.build.simple({
+      sender: signer.accountAddress,
+      data: {
+        function: `${this.contractAddress}::dao_governance::vote_on_proposal`,
+        functionArguments: [
+          this.contractAddress,
+          Array.from(Buffer.from(proposalId, "utf8")),
+          support,
+        ],
+      },
+    })
+    const result = await this.aptos.signAndSubmitTransaction({ signer, transaction: txn })
+    await this.aptos.waitForTransaction({ transactionHash: result.hash })
+    return result.hash
+  }
+
+  /** Finalize a proposal after the voting window closes */
+  async finalizeProposal(caller: AptosAccount, proposalId: string): Promise<string> {
+    const txn = await this.aptos.transaction.build.simple({
+      sender: caller.accountAddress,
+      data: {
+        function: `${this.contractAddress}::dao_governance::finalize_proposal`,
+        functionArguments: [this.contractAddress, Array.from(Buffer.from(proposalId, "utf8"))],
+      },
+    })
+    const result = await this.aptos.signAndSubmitTransaction({ signer: caller, transaction: txn })
+    await this.aptos.waitForTransaction({ transactionHash: result.hash })
+    return result.hash
+  }
+
+  // ── Phase 4: Delegation ────────────────────────────────────────────────────
+
+  /** Delegate voting power to another DAO member */
+  async delegate(signer: AptosAccount, daoId: string, delegatee: string): Promise<string> {
+    const txn = await this.aptos.transaction.build.simple({
+      sender: signer.accountAddress,
+      data: {
+        function: `${this.contractAddress}::dao_governance::delegate`,
+        functionArguments: [
+          this.contractAddress,
+          Array.from(Buffer.from(daoId, "utf8")),
+          delegatee,
+        ],
+      },
+    })
+    const result = await this.aptos.signAndSubmitTransaction({ signer, transaction: txn })
+    await this.aptos.waitForTransaction({ transactionHash: result.hash })
+    return result.hash
+  }
+
+  /** Revoke delegation */
+  async revokeDelegation(signer: AptosAccount, daoId: string): Promise<string> {
+    const txn = await this.aptos.transaction.build.simple({
+      sender: signer.accountAddress,
+      data: {
+        function: `${this.contractAddress}::dao_governance::revoke_delegation`,
+        functionArguments: [this.contractAddress, Array.from(Buffer.from(daoId, "utf8"))],
+      },
+    })
+    const result = await this.aptos.signAndSubmitTransaction({ signer, transaction: txn })
+    await this.aptos.waitForTransaction({ transactionHash: result.hash })
+    return result.hash
+  }
+
+  /** Get total delegated power received by an address */
+  async getDelegatedPower(_daoId: string, delegatee: string): Promise<number> {
+    try {
+      const [result] = await this.aptos.view({
+        payload: {
+          function: `${this.contractAddress}::dao_governance::get_delegated_power`,
+          functionArguments: [this.contractAddress, delegatee],
+        },
+      })
+      return Number(result)
+    } catch {
+      return 0
+    }
+  }
+
+  // ── Phase 4: QRM Token ─────────────────────────────────────────────────────
+
+  /** Get QRM token balance for an address */
+  async getQrmBalance(address: string): Promise<number> {
+    try {
+      const [result] = await this.aptos.view({
+        payload: {
+          function: `${this.contractAddress}::qrm_token::balance`,
+          functionArguments: [this.contractAddress, address],
+        },
+      })
+      return Number(result)
+    } catch {
+      return 0
+    }
+  }
+
+  /** Get total QRM supply */
+  async getQrmTotalSupply(): Promise<number> {
+    try {
+      const [result] = await this.aptos.view({
+        payload: {
+          function: `${this.contractAddress}::qrm_token::total_supply`,
+          functionArguments: [this.contractAddress],
+        },
+      })
+      return Number(result)
+    } catch {
+      return 0
+    }
+  }
+
+  // ── Phase 4: Staking ────────────────────────────────────────────────────────
+
+  /**
+   * Stake QRM tokens.
+   * tier: 0=30d (1.5x), 1=90d (2x), 2=180d (3x)
+   */
+  async stakeQrm(signer: AptosAccount, amount: bigint, tier: 0 | 1 | 2): Promise<string> {
+    const txn = await this.aptos.transaction.build.simple({
+      sender: signer.accountAddress,
+      data: {
+        function: `${this.contractAddress}::staking::stake`,
+        functionArguments: [this.contractAddress, amount, tier],
+      },
+    })
+    const result = await this.aptos.signAndSubmitTransaction({ signer, transaction: txn })
+    await this.aptos.waitForTransaction({ transactionHash: result.hash })
+    return result.hash
+  }
+
+  /** Unstake QRM tokens */
+  async unstakeQrm(signer: AptosAccount): Promise<string> {
+    const txn = await this.aptos.transaction.build.simple({
+      sender: signer.accountAddress,
+      data: {
+        function: `${this.contractAddress}::staking::unstake`,
+        functionArguments: [this.contractAddress],
+      },
+    })
+    const result = await this.aptos.signAndSubmitTransaction({ signer, transaction: txn })
+    await this.aptos.waitForTransaction({ transactionHash: result.hash })
+    return result.hash
+  }
+
+  /** Get staking boost in basis points for an address (100 = no boost) */
+  async getStakingBoost(address: string): Promise<number> {
+    try {
+      const [result] = await this.aptos.view({
+        payload: {
+          function: `${this.contractAddress}::staking::get_boost_bps`,
+          functionArguments: [this.contractAddress, address],
+        },
+      })
+      return Number(result)
+    } catch {
+      return 100
+    }
+  }
+
+  /** Get effective voting power with staking boost applied */
+  async getEffectiveVotingPower(address: string, baseVp: number): Promise<number> {
+    try {
+      const [result] = await this.aptos.view({
+        payload: {
+          function: `${this.contractAddress}::staking::get_effective_voting_power`,
+          functionArguments: [this.contractAddress, address, baseVp],
+        },
+      })
+      return Number(result)
+    } catch {
+      return baseVp
+    }
+  }
 }

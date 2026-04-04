@@ -40,6 +40,12 @@ export default function Header() {
             Vote
           </Link>
           <Link
+            to="/staking"
+            className="text-on-surface-variant hover:text-on-surface transition-colors [&.active]:text-primary"
+          >
+            Stake
+          </Link>
+          <Link
             to="/contribute"
             className="text-on-surface-variant hover:text-on-surface transition-colors [&.active]:text-primary"
           >

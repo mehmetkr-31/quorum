@@ -34,6 +34,50 @@ export async function setupTestSchema(client: ReturnType<typeof createClient>) {
       role TEXT NOT NULL DEFAULT 'member',
       joined_at INTEGER NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS proposals (
+      id TEXT PRIMARY KEY,
+      dao_id TEXT NOT NULL,
+      proposer_address TEXT NOT NULL,
+      proposal_type INTEGER NOT NULL DEFAULT 2,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      payload TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'active',
+      yes_power INTEGER NOT NULL DEFAULT 0,
+      no_power INTEGER NOT NULL DEFAULT 0,
+      total_power INTEGER NOT NULL DEFAULT 0,
+      aptos_tx_hash TEXT,
+      voting_deadline INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS proposal_votes (
+      id TEXT PRIMARY KEY,
+      proposal_id TEXT NOT NULL,
+      voter_address TEXT NOT NULL,
+      support INTEGER NOT NULL,
+      voting_power INTEGER NOT NULL,
+      aptos_tx_hash TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS stakes (
+      id TEXT PRIMARY KEY,
+      staker_address TEXT NOT NULL UNIQUE,
+      amount INTEGER NOT NULL,
+      tier INTEGER NOT NULL DEFAULT 0,
+      boost_bps INTEGER NOT NULL DEFAULT 150,
+      staked_at INTEGER NOT NULL,
+      unlock_at INTEGER NOT NULL,
+      aptos_tx_hash TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS delegations (
+      id TEXT PRIMARY KEY,
+      dao_id TEXT NOT NULL,
+      delegator_address TEXT NOT NULL,
+      delegatee_address TEXT NOT NULL,
+      delegated_power INTEGER NOT NULL,
+      aptos_tx_hash TEXT,
+      created_at INTEGER NOT NULL
+    )`,
     `CREATE TABLE IF NOT EXISTS datasets (
       id TEXT PRIMARY KEY,
       dao_id TEXT NOT NULL,
