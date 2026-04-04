@@ -10,8 +10,8 @@ describe("daoRouter", () => {
   let client: ReturnType<typeof createTestDb>["client"]
   let ctx: ReturnType<typeof createMockContext>
 
-  const OWNER = "0xowner"
-  const TREASURY = "0xtreasury"
+  const OWNER = "0x" + "a".repeat(64)
+  const TREASURY = "0x" + "b".repeat(64)
 
   beforeEach(async () => {
     const testDb = createTestDb()
@@ -142,7 +142,7 @@ describe("daoRouter", () => {
       { context: ctx },
     )
 
-    const newMember = "0xnewmember"
+    const newMember = "0x" + "c".repeat(64)
     const result = await call(
       daoRouter.join,
       { daoId: id, memberAddress: newMember },
@@ -167,10 +167,14 @@ describe("daoRouter", () => {
       { context: ctx },
     )
 
-    await call(daoRouter.join, { daoId: id, memberAddress: "0xuser" }, { context: ctx })
+    await call(
+      daoRouter.join,
+      { daoId: id, memberAddress: "0x" + "c".repeat(64) },
+      { context: ctx },
+    )
     const second = await call(
       daoRouter.join,
-      { daoId: id, memberAddress: "0xuser" },
+      { daoId: id, memberAddress: "0x" + "c".repeat(64) },
       { context: ctx },
     )
     expect(second.alreadyMember).toBe(true)
@@ -203,7 +207,7 @@ describe("daoRouter", () => {
 
     const membership = await call(
       daoRouter.getMembership,
-      { daoId: id, memberAddress: "0xstranger" },
+      { daoId: id, memberAddress: "0x" + "d".repeat(64) },
       { context: ctx },
     )
     expect(membership).toBeNull()
@@ -218,8 +222,16 @@ describe("daoRouter", () => {
       { context: ctx },
     )
 
-    await call(daoRouter.join, { daoId: id, memberAddress: "0xlow" }, { context: ctx })
-    await call(daoRouter.join, { daoId: id, memberAddress: "0xmed" }, { context: ctx })
+    await call(
+      daoRouter.join,
+      { daoId: id, memberAddress: "0x" + "e".repeat(64) },
+      { context: ctx },
+    )
+    await call(
+      daoRouter.join,
+      { daoId: id, memberAddress: "0x" + "f".repeat(64) },
+      { context: ctx },
+    )
 
     const members = await call(daoRouter.listMembers, { daoId: id }, { context: ctx })
     // owner (VP=10) en üstte olmalı
@@ -235,7 +247,11 @@ describe("daoRouter", () => {
       { name: "Stats DAO", ownerAddress: OWNER, treasuryAddress: TREASURY },
       { context: ctx },
     )
-    await call(daoRouter.join, { daoId: id, memberAddress: "0xmember2" }, { context: ctx })
+    await call(
+      daoRouter.join,
+      { daoId: id, memberAddress: "0x" + "9".repeat(64) },
+      { context: ctx },
+    )
 
     const stats = await call(daoRouter.getStats, { daoId: id }, { context: ctx })
     expect(stats.totalMembers).toBe(2) // owner + yeni üye

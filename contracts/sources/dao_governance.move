@@ -15,12 +15,28 @@ module quorum::dao_governance {
     const E_DAO_NOT_FOUND: u64 = 7;
     const E_DAO_ALREADY_EXISTS: u64 = 8;
     const E_NOT_DAO_MEMBER: u64 = 9;
+    const E_INPUT_TOO_LONG: u64 = 10;
+    const E_INVALID_THRESHOLD: u64 = 11;
+    const E_INVALID_WINDOW: u64 = 12;
+    const E_CONTRIBUTION_EXISTS: u64 = 13;
 
     // ── Constants ────────────────────────────────────────────────────────────
     /// Default 48-hour voting window in microseconds
     const DEFAULT_VOTING_WINDOW_US: u64 = 60_000_000;
     /// Default approval threshold: 60% weighted votes required
     const DEFAULT_QUORUM_THRESHOLD: u64 = 60;
+
+    // ── Input size limits ─────────────────────────────────────────────────────
+    /// Max DAO/contribution ID length: 128 bytes
+    const MAX_ID_BYTES: u64 = 128;
+    /// Max name/description length: 256 bytes
+    const MAX_NAME_BYTES: u64 = 256;
+    /// SHA-256 hash is exactly 32 bytes
+    const DATA_HASH_BYTES: u64 = 32;
+    /// Max voting window: 30 days in microseconds
+    const MAX_VOTING_WINDOW_US: u64 = 2_592_000_000_000;
+    /// Min voting window: 1 minute in microseconds
+    const MIN_VOTING_WINDOW_US: u64 = 60_000_000;
 
     // ── Structs ──────────────────────────────────────────────────────────────
 
@@ -181,6 +197,18 @@ module quorum::dao_governance {
         let addr = signer::address_of(creator);
         let now = timestamp::now_microseconds();
 
+        // ── Input validation ─────────────────────────────────────────────────
+        assert!(vector::length(&dao_id) > 0 && vector::length(&dao_id) <= MAX_ID_BYTES, E_INPUT_TOO_LONG);
+        assert!(vector::length(&name) > 0 && vector::length(&name) <= MAX_NAME_BYTES, E_INPUT_TOO_LONG);
+        assert!(
+            quorum_threshold == 0 || (quorum_threshold >= 1 && quorum_threshold <= 100),
+            E_INVALID_THRESHOLD,
+        );
+        assert!(
+            voting_window_us == 0 || (voting_window_us >= MIN_VOTING_WINDOW_US && voting_window_us <= MAX_VOTING_WINDOW_US),
+            E_INVALID_WINDOW,
+        );
+
         // Ensure global Member resource exists
         if (!exists<Member>(addr)) {
             move_to(creator, Member {
@@ -304,6 +332,12 @@ module quorum::dao_governance {
         let addr = signer::address_of(contributor);
         assert!(exists<Member>(addr), E_NOT_MEMBER);
 
+        // ── Input validation ─────────────────────────────────────────────────
+        assert!(vector::length(&contribution_id) > 0 && vector::length(&contribution_id) <= MAX_ID_BYTES, E_INPUT_TOO_LONG);
+        assert!(vector::length(&dao_id) > 0 && vector::length(&dao_id) <= MAX_ID_BYTES, E_INPUT_TOO_LONG);
+        assert!(vector::length(&dataset_id) > 0 && vector::length(&dataset_id) <= MAX_ID_BYTES, E_INPUT_TOO_LONG);
+        assert!(vector::length(&data_hash) == DATA_HASH_BYTES, E_INPUT_TOO_LONG);
+
         // Verify DAO exists and contributor is a member
         let registry = borrow_global<DAORegistry>(contract_addr);
         assert!(table::contains(&registry.daos, dao_id), E_DAO_NOT_FOUND);
@@ -317,6 +351,8 @@ module quorum::dao_governance {
         let voting_window = dao.voting_window_us;
 
         let store = borrow_global_mut<ContributionStore>(contract_addr);
+        // Prevent duplicate contribution IDs
+        assert!(!table::contains(&store.contributions, contribution_id), E_CONTRIBUTION_EXISTS);
         table::add(&mut store.contributions, contribution_id, Contribution {
             dao_id,
             dataset_id,
@@ -443,9 +479,12 @@ module quorum::dao_governance {
             if (exists<Member>(contributor)) {
                 let member = borrow_global_mut<Member>(contributor);
                 member.approved_contributions = member.approved_contributions + 1;
-                let rate = member.approved_contributions * 100 / member.total_contributions;
-                if (rate >= 80 && member.voting_power < 100) {
-                    member.voting_power = member.voting_power + 1;
+                // Guard against division by zero
+                if (member.total_contributions > 0) {
+                    let rate = member.approved_contributions * 100 / member.total_contributions;
+                    if (rate >= 80 && member.voting_power < 100) {
+                        member.voting_power = member.voting_power + 1;
+                    };
                 };
             };
 
@@ -455,9 +494,12 @@ module quorum::dao_governance {
             if (table::contains(&member_store.members, member_key)) {
                 let dao_member = table::borrow_mut(&mut member_store.members, member_key);
                 dao_member.approved_contributions = dao_member.approved_contributions + 1;
-                let dao_rate = dao_member.approved_contributions * 100 / dao_member.total_contributions;
-                if (dao_rate >= 80 && dao_member.voting_power < 100) {
-                    dao_member.voting_power = dao_member.voting_power + 1;
+                // Guard against division by zero
+                if (dao_member.total_contributions > 0) {
+                    let dao_rate = dao_member.approved_contributions * 100 / dao_member.total_contributions;
+                    if (dao_rate >= 80 && dao_member.voting_power < 100) {
+                        dao_member.voting_power = dao_member.voting_power + 1;
+                    };
                 };
             };
         } else {

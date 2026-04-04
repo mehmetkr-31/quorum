@@ -3,18 +3,49 @@ import { and, eq, sql } from "drizzle-orm"
 import { z } from "zod"
 import { publicProcedure } from "../index"
 
+// ── Shared validators ────────────────────────────────────────────────────────
+
+const aptosAddress = z.string().regex(/^0x[0-9a-fA-F]{1,64}$/, "Invalid Aptos address format")
+
+const aptosTxHash = z.string().regex(/^0x[0-9a-fA-F]{64}$/, "Invalid Aptos transaction hash format")
+
+const uuidV4 = z.string().uuid("Must be a valid UUID")
+
+/** Shelby receipt hash — 64 hex chars (no 0x prefix) */
+const shelbyHash = z
+  .string()
+  .regex(/^[0-9a-fA-F]{64}$/, "Shelby receipt hash must be 64 hex characters")
+
+// ── Router ───────────────────────────────────────────────────────────────────
+
 export const revenueRouter = {
   anchorReceipt: publicProcedure
     .input(
       z.object({
-        datasetId: z.string(),
-        readerAddress: z.string(),
-        shelbyReceiptHash: z.string(),
-        aptosTxHash: z.string(),
-        amount: z.number(),
+        datasetId: uuidV4,
+        readerAddress: aptosAddress,
+        shelbyReceiptHash: shelbyHash,
+        aptosTxHash: aptosTxHash,
+        amount: z.number().int().positive().max(1_000_000_000_000), // max 10,000 APT in octas
       }),
     )
     .handler(async ({ input, context: ctx }) => {
+      // Verify dataset exists
+      const [dataset] = await ctx.db
+        .select({ id: datasets.id })
+        .from(datasets)
+        .where(eq(datasets.id, input.datasetId))
+        .limit(1)
+      if (!dataset) throw new Error("Dataset not found")
+
+      // Idempotency — don't double-insert same receipt
+      const [existing] = await ctx.db
+        .select({ id: receipts.id })
+        .from(receipts)
+        .where(eq(receipts.shelbyReceiptHash, input.shelbyReceiptHash))
+        .limit(1)
+      if (existing) return { id: existing.id }
+
       const id = crypto.randomUUID()
       await ctx.db.insert(receipts).values({
         id,
@@ -29,7 +60,7 @@ export const revenueRouter = {
     }),
 
   getEarnings: publicProcedure
-    .input(z.object({ contributorAddress: z.string() }))
+    .input(z.object({ contributorAddress: aptosAddress }))
     .handler(async ({ input, context: ctx }) => {
       const rows = await ctx.db
         .select()
@@ -39,7 +70,6 @@ export const revenueRouter = {
       const member = rows[0]
       if (!member) return { approvedContributions: 0, totalWeight: 0 }
 
-      // Fix Issue 3: Calculate actual approved weight sum
       const weightRows = await ctx.db
         .select({
           totalWeight: sql<number>`sum(${contributions.weight})`.mapWith(Number),
@@ -63,7 +93,7 @@ export const revenueRouter = {
       z
         .object({
           distributed: z.boolean().optional(),
-          limit: z.number().default(50).optional(),
+          limit: z.number().int().min(1).max(200).default(50).optional(),
         })
         .optional(),
     )
@@ -76,7 +106,7 @@ export const revenueRouter = {
     }),
 
   distribute: publicProcedure
-    .input(z.object({ receiptId: z.string() }))
+    .input(z.object({ receiptId: uuidV4 }))
     .handler(async ({ input, context: ctx }) => {
       const [receipt] = await ctx.db
         .select()
@@ -116,7 +146,7 @@ export const revenueRouter = {
       const curatorAddresses = curatorRows.map((r) => r.address)
       const curatorPowers = curatorRows.map((r) => BigInt(r.votingPower))
 
-      const aptosTxHash = await ctx.aptosClient.distributeRevenue(
+      const txHash = await ctx.aptosClient.distributeRevenue(
         daoId,
         receipt.datasetId,
         receipt.shelbyReceiptHash,
@@ -132,6 +162,6 @@ export const revenueRouter = {
         .set({ distributed: true })
         .where(eq(receipts.id, input.receiptId))
 
-      return { aptosTxHash }
+      return { aptosTxHash: txHash }
     }),
 }

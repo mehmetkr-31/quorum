@@ -1,20 +1,59 @@
-import { contributions } from "@quorum/db"
+import { contributions, datasets } from "@quorum/db"
 import { and, eq } from "drizzle-orm"
 import { z } from "zod"
 import { publicProcedure } from "../index"
+
+// ── Shared validators ────────────────────────────────────────────────────────
+
+/** Aptos address: 0x followed by 1–64 hex chars */
+const aptosAddress = z.string().regex(/^0x[0-9a-fA-F]{1,64}$/, "Invalid Aptos address format")
+
+/** Aptos tx hash: 0x followed by exactly 64 hex chars */
+const aptosTxHash = z.string().regex(/^0x[0-9a-fA-F]{64}$/, "Invalid Aptos transaction hash format")
+
+/** UUID v4 */
+const uuidV4 = z.string().uuid("Must be a valid UUID")
+
+/** base64-encoded data — max 50 MB decoded */
+const MAX_DATA_BYTES = 50 * 1024 * 1024 // 50 MB
+const base64Data = z
+  .string()
+  .min(1, "Data cannot be empty")
+  .refine(
+    (s) => {
+      // Each base64 char represents 6 bits; 4 chars = 3 bytes
+      const approxBytes = Math.ceil((s.length * 3) / 4)
+      return approxBytes <= MAX_DATA_BYTES
+    },
+    { message: "Data exceeds 50 MB limit" },
+  )
+
+// ── Router ───────────────────────────────────────────────────────────────────
 
 export const contributionRouter = {
   submit: publicProcedure
     .input(
       z.object({
-        datasetId: z.string(),
-        shelbyAccount: z.string(), // kept for API compatibility, overridden by server signer
-        contributorAddress: z.string(),
-        data: z.string(), // base64
-        contentType: z.string().default("application/octet-stream").optional(),
+        datasetId: uuidV4,
+        shelbyAccount: z.string().min(1).max(500),
+        contributorAddress: aptosAddress,
+        data: base64Data,
+        contentType: z
+          .string()
+          .regex(/^[\w.-]+\/[\w.+\-*]+$/, "Invalid content type")
+          .default("application/octet-stream")
+          .optional(),
       }),
     )
     .handler(async ({ input, context: ctx }) => {
+      // Verify dataset exists before upload
+      const [dataset] = await ctx.db
+        .select({ id: datasets.id })
+        .from(datasets)
+        .where(eq(datasets.id, input.datasetId))
+        .limit(1)
+      if (!dataset) throw new Error("Dataset not found")
+
       const id = crypto.randomUUID()
       const blobName = `contributions/${input.datasetId}/${id}`
       const buffer = Buffer.from(input.data, "base64")
@@ -41,8 +80,8 @@ export const contributionRouter = {
   confirmOnChain: publicProcedure
     .input(
       z.object({
-        id: z.string(),
-        aptosTxHash: z.string(),
+        id: uuidV4,
+        aptosTxHash: aptosTxHash,
       }),
     )
     .handler(async ({ input, context: ctx }) => {
@@ -54,7 +93,7 @@ export const contributionRouter = {
     }),
 
   getContent: publicProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: uuidV4 }))
     .handler(async ({ input, context: ctx }) => {
       const rows = await ctx.db
         .select()
@@ -84,8 +123,8 @@ export const contributionRouter = {
   listMine: publicProcedure
     .input(
       z.object({
-        walletAddress: z.string(),
-        limit: z.number().default(50).optional(),
+        walletAddress: aptosAddress,
+        limit: z.number().int().min(1).max(200).default(50).optional(),
       }),
     )
     .handler(async ({ input, context: ctx }) => {
@@ -101,8 +140,8 @@ export const contributionRouter = {
       z
         .object({
           status: z.enum(["pending", "approved", "rejected"]).optional(),
-          contributorAddress: z.string().optional(),
-          limit: z.number().default(50).optional(),
+          contributorAddress: aptosAddress.optional(),
+          limit: z.number().int().min(1).max(200).default(50).optional(),
         })
         .optional(),
     )
@@ -112,11 +151,10 @@ export const contributionRouter = {
       if (input?.contributorAddress)
         filters.push(eq(contributions.contributorAddress, input.contributorAddress))
 
-      const rows = await ctx.db
+      return ctx.db
         .select()
         .from(contributions)
         .where(filters.length > 0 ? and(...filters) : undefined)
         .limit(input?.limit ?? 50)
-      return rows
     }),
 }

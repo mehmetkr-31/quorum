@@ -11,7 +11,7 @@ describe("datasetRouter", () => {
   let ctx: ReturnType<typeof createMockContext>
 
   const DAO_ID = "dao-test"
-  const OWNER = "0xowner"
+  const OWNER = "0x" + "a".repeat(64)
 
   beforeEach(async () => {
     const testDb = createTestDb()

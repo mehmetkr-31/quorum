@@ -3,6 +3,17 @@ import { and, count, desc, eq } from "drizzle-orm"
 import { z } from "zod"
 import { publicProcedure } from "../index"
 
+// ── Shared validators ────────────────────────────────────────────────────────
+
+const aptosAddress = z.string().regex(/^0x[0-9a-fA-F]{1,64}$/, "Invalid Aptos address format")
+
+/** Slug: lowercase alphanumeric + hyphens, 2–60 chars */
+const daoSlug = z
+  .string()
+  .min(2)
+  .max(60)
+  .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, "Slug must be lowercase alphanumeric with hyphens")
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -15,14 +26,14 @@ export const daoRouter = {
   create: publicProcedure
     .input(
       z.object({
-        name: z.string().min(1).max(100),
-        description: z.string().max(1000).optional(),
-        slug: z.string().min(1).max(50).optional(),
-        ownerAddress: z.string(),
-        treasuryAddress: z.string(),
-        imageUrl: z.string().url().optional(),
-        votingWindowSeconds: z.number().min(60).max(604800).default(172800), // 1min - 7days
-        quorumThreshold: z.number().min(1).max(100).default(60),
+        name: z.string().min(2).max(100).trim(),
+        description: z.string().max(2000).optional(),
+        slug: daoSlug.optional(),
+        ownerAddress: aptosAddress,
+        treasuryAddress: aptosAddress,
+        imageUrl: z.string().url().max(500).optional(),
+        votingWindowSeconds: z.number().int().min(60).max(604800).default(172800),
+        quorumThreshold: z.number().int().min(1).max(100).default(60),
       }),
     )
     .handler(async ({ input, context: ctx }) => {
@@ -141,7 +152,7 @@ export const daoRouter = {
     .input(
       z.object({
         daoId: z.string(),
-        memberAddress: z.string(),
+        memberAddress: aptosAddress,
       }),
     )
     .handler(async ({ input, context: ctx }) => {
@@ -203,7 +214,7 @@ export const daoRouter = {
     .input(
       z.object({
         daoId: z.string(),
-        memberAddress: z.string(),
+        memberAddress: aptosAddress,
       }),
     )
     .handler(async ({ input, context: ctx }) => {

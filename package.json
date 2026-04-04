@@ -17,6 +17,8 @@
     "seed": "tsx seed.ts",
     "setup": "bash setup.sh",
     "test": "turbo test",
+    "test:load": "tsx scripts/load-test.ts",
+    "test:load:prod": "tsx scripts/load-test.ts --url=https://your-app.fly.dev",
     "prepare": "simple-git-hooks"
   },
   "simple-git-hooks": {
@@ -29,6 +31,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.2.0",
     "@types/node": "catalog:",
+    "autocannon": "^8.0.0",
     "lint-staged": "^16.4.0",
     "playwright": "1.58.2",
     "simple-git-hooks": "^2.13.1",

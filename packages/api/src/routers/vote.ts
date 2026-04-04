@@ -3,17 +3,27 @@ import { desc } from "drizzle-orm"
 import { z } from "zod"
 import { publicProcedure } from "../index"
 
+// ── Shared validators ────────────────────────────────────────────────────────
+
+const aptosAddress = z.string().regex(/^0x[0-9a-fA-F]{1,64}$/, "Invalid Aptos address format")
+
+const aptosTxHash = z.string().regex(/^0x[0-9a-fA-F]{64}$/, "Invalid Aptos transaction hash format")
+
+const uuidV4 = z.string().uuid("Must be a valid UUID")
+
+// ── Router ───────────────────────────────────────────────────────────────────
+
 export const voteRouter = {
   listHistory: publicProcedure
     .input(
       z
         .object({
-          limit: z.number().default(50).optional(),
+          limit: z.number().int().min(1).max(200).default(50).optional(),
         })
         .optional(),
     )
     .handler(async ({ input, context: ctx }) => {
-      const rows = await ctx.db
+      return ctx.db
         .select({
           id: votes.id,
           contributionId: votes.contributionId,
@@ -26,18 +36,16 @@ export const voteRouter = {
         .from(votes)
         .orderBy(desc(votes.createdAt))
         .limit(input?.limit ?? 50)
-
-      return rows
     }),
 
   cast: publicProcedure
     .input(
       z.object({
-        contributionId: z.string(),
-        voterAddress: z.string(),
+        contributionId: uuidV4,
+        voterAddress: aptosAddress,
         decision: z.enum(["approve", "reject", "improve"]),
-        reason: z.string().optional(),
-        aptosTxHash: z.string(),
+        reason: z.string().max(1000).optional(),
+        aptosTxHash: aptosTxHash,
       }),
     )
     .handler(async ({ input, context: ctx }) => {
@@ -56,7 +64,7 @@ export const voteRouter = {
       })
 
       // Contribution status is managed by the indexer via ContributionFinalized events.
-      // We only record the vote here; the on-chain finalization (after 48h voting window)
+      // We only record the vote here; the on-chain finalization (after voting window)
       // triggers the indexer to update status based on quorum threshold.
 
       return { id }

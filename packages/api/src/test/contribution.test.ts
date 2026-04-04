@@ -5,15 +5,19 @@ import { beforeEach, describe, expect, it } from "vitest"
 import { contributionRouter } from "../routers/contribution"
 import { createMockContext, createTestDb, setupTestSchema } from "./helpers"
 
+// Valid test fixtures matching hardened validators
+const DAO_ID = "dao-test"
+const CONTRIBUTOR = "0x" + "a".repeat(64)
+const VALID_TX_HASH = "0x" + "b".repeat(64)
+
 describe("contributionRouter", () => {
   let db: ReturnType<typeof createTestDb>["db"]
   let client: ReturnType<typeof createTestDb>["client"]
   let ctx: ReturnType<typeof createMockContext>
-
-  const DATASET_ID = "ds-1"
-  const CONTRIBUTOR = "0xtest" // mock context walletAddress
+  let DATASET_ID: string
 
   beforeEach(async () => {
+    DATASET_ID = crypto.randomUUID()
     const testDb = createTestDb()
     db = testDb.db
     client = testDb.client
@@ -22,9 +26,9 @@ describe("contributionRouter", () => {
 
     await db.insert(datasets).values({
       id: DATASET_ID,
-      daoId: "dao-test",
+      daoId: DAO_ID,
       name: "Test Dataset",
-      ownerAddress: "0xowner",
+      ownerAddress: CONTRIBUTOR,
       createdAt: new Date(),
     })
   })
@@ -42,7 +46,7 @@ describe("contributionRouter", () => {
       { context: ctx },
     )
 
-    expect(result.shelbyBlobName).toMatch(/^contributions\/ds-1\//)
+    expect(result.shelbyBlobName).toMatch(/^contributions\/[0-9a-f-]+\//)
     expect(result.dataHash).toBe("0xabc123")
 
     const rows = await db.select().from(contributions).where(eq(contributions.id, result.id))
@@ -66,12 +70,12 @@ describe("contributionRouter", () => {
 
     await call(
       contributionRouter.confirmOnChain,
-      { id, aptosTxHash: "0xdeadbeef" },
+      { id, aptosTxHash: VALID_TX_HASH },
       { context: ctx },
     )
 
     const rows = await db.select().from(contributions).where(eq(contributions.id, id))
-    expect(rows[0]?.aptosTxHash).toBe("0xdeadbeef")
+    expect(rows[0]?.aptosTxHash).toBe(VALID_TX_HASH)
   })
 
   it("list: tüm contribution'ları döner", async () => {

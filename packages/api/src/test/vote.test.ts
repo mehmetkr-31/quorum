@@ -6,13 +6,25 @@ import { contributionRouter } from "../routers/contribution"
 import { voteRouter } from "../routers/vote"
 import { createMockContext, createTestDb, setupTestSchema } from "./helpers"
 
+// Valid test fixtures matching hardened validators
+const DAO_ID = "dao-test"
+const CONTRIBUTOR = "0x" + "a".repeat(64)
+const VOTER1 = "0x" + "c".repeat(64)
+const VOTER2 = "0x" + "d".repeat(64)
+const VOTER3 = "0x" + "e".repeat(64)
+const TX1 = "0x" + "1".repeat(64)
+const TX2 = "0x" + "2".repeat(64)
+const TX3 = "0x" + "3".repeat(64)
+
 describe("voteRouter", () => {
   let db: ReturnType<typeof createTestDb>["db"]
   let client: ReturnType<typeof createTestDb>["client"]
   let ctx: ReturnType<typeof createMockContext>
   let contributionId: string
+  let DATASET_ID: string
 
   beforeEach(async () => {
+    DATASET_ID = crypto.randomUUID()
     const testDb = createTestDb()
     db = testDb.db
     client = testDb.client
@@ -20,21 +32,21 @@ describe("voteRouter", () => {
     ctx = createMockContext(db)
 
     await db.insert(datasets).values({
-      id: "ds-1",
-      daoId: "dao-test",
+      id: DATASET_ID,
+      daoId: DAO_ID,
       name: "Test",
-      ownerAddress: "0xowner",
+      ownerAddress: CONTRIBUTOR,
       createdAt: new Date(),
     })
 
     const result = await call(
       contributionRouter.submit,
       {
-        datasetId: "ds-1",
+        datasetId: DATASET_ID,
         shelbyAccount: "shelby://test",
         data: Buffer.from("test").toString("base64"),
         contentType: "text/plain",
-        contributorAddress: "0xtest",
+        contributorAddress: CONTRIBUTOR,
       },
       { context: ctx },
     )
@@ -44,7 +56,7 @@ describe("voteRouter", () => {
   it("cast: oyu DB'ye kaydeder ve id döner", async () => {
     const result = await call(
       voteRouter.cast,
-      { contributionId, decision: "approve", aptosTxHash: "0xtx1", voterAddress: "0xvoter1" },
+      { contributionId, decision: "approve", aptosTxHash: TX1, voterAddress: VOTER1 },
       { context: ctx },
     )
 
@@ -53,15 +65,13 @@ describe("voteRouter", () => {
     const voteRows = await db.select().from(votes).where(eq(votes.id, result.id))
     expect(voteRows[0]?.decision).toBe("approve")
     expect(voteRows[0]?.votingPower).toBe(10)
-    expect(voteRows[0]?.aptosTxHash).toBe("0xtx1")
+    expect(voteRows[0]?.aptosTxHash).toBe(TX1)
   })
 
   it("cast: contribution status'u pending'de bırakır (indexer değiştirir)", async () => {
-    // Status, ContributionFinalized on-chain event → indexer tarafından güncellenir.
-    // cast sadece oyu kaydeder, contribution'a dokunmaz.
     await call(
       voteRouter.cast,
-      { contributionId, decision: "approve", aptosTxHash: "0xtx2", voterAddress: "0xvoter1" },
+      { contributionId, decision: "approve", aptosTxHash: TX2, voterAddress: VOTER1 },
       { context: ctx },
     )
 
@@ -72,17 +82,17 @@ describe("voteRouter", () => {
   it("cast: farklı kararları kaydeder (approve/reject/improve)", async () => {
     await call(
       voteRouter.cast,
-      { contributionId, decision: "approve", aptosTxHash: "0xt1", voterAddress: "0xvoter1" },
+      { contributionId, decision: "approve", aptosTxHash: TX1, voterAddress: VOTER1 },
       { context: ctx },
     )
     await call(
       voteRouter.cast,
-      { contributionId, decision: "reject", aptosTxHash: "0xt2", voterAddress: "0xvoter2" },
+      { contributionId, decision: "reject", aptosTxHash: TX2, voterAddress: VOTER2 },
       { context: ctx },
     )
     await call(
       voteRouter.cast,
-      { contributionId, decision: "improve", aptosTxHash: "0xt3", voterAddress: "0xvoter3" },
+      { contributionId, decision: "improve", aptosTxHash: TX3, voterAddress: VOTER3 },
       { context: ctx },
     )
 
@@ -97,12 +107,12 @@ describe("voteRouter", () => {
   it("listHistory: oy geçmişini döner", async () => {
     await call(
       voteRouter.cast,
-      { contributionId, decision: "approve", aptosTxHash: "0xt1", voterAddress: "0xvoter1" },
+      { contributionId, decision: "approve", aptosTxHash: TX1, voterAddress: VOTER1 },
       { context: ctx },
     )
     await call(
       voteRouter.cast,
-      { contributionId, decision: "reject", aptosTxHash: "0xt2", voterAddress: "0xvoter2" },
+      { contributionId, decision: "reject", aptosTxHash: TX2, voterAddress: VOTER2 },
       { context: ctx },
     )
 

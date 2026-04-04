@@ -11,7 +11,9 @@
     "lint": "biome lint .",
     "format": "biome format . --write",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@aptos-labs/ts-sdk": "^6.3.1",
@@ -39,6 +41,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/vite": "^4.0.0",
     "@tanstack/router-plugin": "1.167.4",
     "@testing-library/jest-dom": "^6.0.0",

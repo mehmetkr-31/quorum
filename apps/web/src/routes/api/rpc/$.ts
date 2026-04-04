@@ -1,13 +1,79 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { checkRateLimit, getClientIp } from "@/server/rate-limit"
+import {
+  checkCombinedRateLimit,
+  checkRateLimit,
+  getClientIp,
+  RATE_LIMIT_PROFILES,
+} from "@/server/rate-limit"
 
-// Server-only import'lar handler içinde — client bundle'a dahil olmaz
+/**
+ * Determine the rate limit profile based on the procedure path.
+ * POST /api/rpc/contribution.submit  → "write"
+ * POST /api/rpc/dao.create           → "create"
+ * POST /api/rpc/dataset.pushToHub    → "push"
+ * POST /api/rpc/revenue.distribute   → "revenue"
+ * Everything else                    → "read"
+ */
+function getProfile(url: URL): keyof typeof RATE_LIMIT_PROFILES {
+  const path = url.pathname.replace("/api/rpc/", "")
+  if (
+    path === "contribution.submit" ||
+    path === "vote.cast" ||
+    path === "dao.join" ||
+    path === "revenue.anchorReceipt"
+  )
+    return "write"
+  if (path === "dao.create" || path === "dataset.create") return "create"
+  if (path === "dataset.pushToHub") return "push"
+  if (path === "revenue.distribute") return "revenue"
+  return "read"
+}
+
 async function handle({ request }: { request: Request }) {
   const ip = getClientIp(request)
+  const url = new URL(request.url)
+  const profile = getProfile(url)
+
+  // Global IP limit (broad protection)
   if (!checkRateLimit(ip)) {
     return new Response(JSON.stringify({ error: "Too Many Requests" }), {
       status: 429,
-      headers: { "Content-Type": "application/json", "Retry-After": "60" },
+      headers: {
+        "Content-Type": "application/json",
+        "Retry-After": "60",
+        "X-RateLimit-Limit": "60",
+      },
+    })
+  }
+
+  // For write/create/push operations, extract wallet address from body for per-wallet limiting
+  let walletAddress: string | null = null
+  if (request.method === "POST" && profile !== "read") {
+    try {
+      const cloned = request.clone()
+      const body = (await cloned.json()) as Record<string, unknown>
+      walletAddress =
+        (body.ownerAddress as string) ||
+        (body.contributorAddress as string) ||
+        (body.voterAddress as string) ||
+        (body.memberAddress as string) ||
+        null
+    } catch {
+      // Body parse failure is fine — we just skip wallet rate limiting
+    }
+  }
+
+  // Per-endpoint + per-wallet combined check
+  const check = checkCombinedRateLimit(ip, walletAddress, profile)
+  if (!check.allowed) {
+    const windowMs = RATE_LIMIT_PROFILES[profile].windowMs
+    return new Response(JSON.stringify({ error: `Too Many Requests — ${check.reason}` }), {
+      status: 429,
+      headers: {
+        "Content-Type": "application/json",
+        "Retry-After": String(Math.ceil(windowMs / 1000)),
+        "X-RateLimit-Profile": profile,
+      },
     })
   }
 
