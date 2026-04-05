@@ -1,39 +1,15 @@
 name: Preview
 
+# This workflow is disabled by default.
+# Vercel automatically creates preview deployments for PRs when connected to GitHub.
+# Enable this only if you need custom PR preview behavior.
+
 on:
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 jobs:
   preview:
-    name: Deploy PR Preview
+    name: Manual Preview Deploy
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-    # Only run if Vercel secrets are configured
-    if: ${{ secrets.VERCEL_TOKEN != '' }}
-
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Deploy preview to Vercel
-        uses: amondnet/vercel-action@v25
-        id: deploy
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: apps/web
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          github-comment: true
+      - run: echo "Vercel handles PR previews automatically via GitHub integration"
