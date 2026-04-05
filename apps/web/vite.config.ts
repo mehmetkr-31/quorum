@@ -7,7 +7,7 @@ import tsconfigPaths from "vite-tsconfig-paths"
 export default defineConfig({
   plugins: [
     tsconfigPaths({
-      projects: ["./tsconfig.json"], // Only look at web's tsconfig which has the paths
+      projects: ["./tsconfig.json"],
     }),
     tailwindcss(),
     tanstackStart(),
@@ -19,4 +19,6 @@ export default defineConfig({
       ignored: ["**/routeTree.gen.ts"],
     },
   },
+  // Vercel preset is set via NITRO_PRESET env var in CI/Vercel environment
+  // or via app.config.ts if needed
 })

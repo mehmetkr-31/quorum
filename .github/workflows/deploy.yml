@@ -16,7 +16,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to Fly.io
+    name: Deploy to Vercel
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'production' }}
     concurrency:
@@ -39,85 +39,30 @@ jobs:
       - name: Run tests before deploy
         run: pnpm turbo test typecheck
 
-      - name: Install Fly CLI
-        uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy to Fly.io
-        run: flyctl deploy --remote-only
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-      - name: Run DB migration on production
-        run: |
-          flyctl ssh console --command "cd /app && pnpm --filter @quorum/db db:migrate" || true
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Deploy to Vercel (Production)
+        uses: amondnet/vercel-action@v25
+        id: deploy
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: apps/web
+          vercel-args: "--prod"
 
       - name: Post deployment summary
         uses: actions/github-script@v7
         if: always()
         with:
           script: |
-            const env = '${{ github.event.inputs.environment || 'production' }}'
             const status = '${{ job.status }}'
             const emoji = status === 'success' ? '✅' : '❌'
+            const url = '${{ steps.deploy.outputs.preview-url }}'
             await core.summary
               .addHeading(`${emoji} Deployment ${status}`, 2)
               .addList([
-                `Environment: **${env}**`,
+                `Environment: **production**`,
+                `URL: ${url || 'N/A'}`,
                 `Commit: \`${{ github.sha }}\``,
-                `Branch: \`${{ github.ref_name }}\``,
                 `Triggered by: @${{ github.actor }}`,
               ])
               .write()
-
-  # ── PR Preview Deploy ────────────────────────────────────────────────────────
-  preview:
-    name: Deploy PR Preview
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    environment: preview
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Fly CLI
-        uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy PR preview
-        id: deploy
-        run: |
-          APP_NAME="quorum-pr-${{ github.event.pull_request.number }}"
-          flyctl deploy --remote-only --app "$APP_NAME" --config fly.toml || \
-          flyctl launch --no-deploy --name "$APP_NAME" --copy-config --yes && \
-          flyctl deploy --remote-only --app "$APP_NAME"
-          echo "preview_url=https://${APP_NAME}.fly.dev" >> $GITHUB_OUTPUT
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        continue-on-error: true
-
-      - name: Comment PR with preview URL
-        uses: actions/github-script@v7
-        if: steps.deploy.outputs.preview_url != ''
-        with:
-          script: |
-            const url = '${{ steps.deploy.outputs.preview_url }}'
-            const body = `## 🚀 Preview Deployment\n\n` +
-              `**URL:** ${url}\n\n` +
-              `This preview will be destroyed when the PR is closed.`
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body,
-            })

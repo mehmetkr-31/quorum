@@ -77,65 +77,73 @@ aptos move run \
 
 ---
 
-## Fly.io Deployment
+## Vercel Deployment
+
+TanStack Start → Nitro → Vercel serverless fonksiyonlar olarak deploy edilir.
 
 ### 1. GitHub Secrets Setup
 
-Go to: `https://github.com/<your-org>/quorum/settings/secrets/actions`
+`Settings → Secrets and variables → Actions`:
 
-Add these repository secrets:
+| Secret | How to get |
+|--------|-----------|
+| `VERCEL_TOKEN` | `vercel.com/account/tokens` → Create token |
+| `VERCEL_ORG_ID` | `.vercel/project.json` → `orgId` (after `vercel link`) |
+| `VERCEL_PROJECT_ID` | `.vercel/project.json` → `projectId` (after `vercel link`) |
+| `DATABASE_AUTH_TOKEN` | Turso dashboard |
 
-| Secret | Description |
-|--------|-------------|
-| `FLY_API_TOKEN` | `flyctl tokens create deploy -x 999999h` |
-| `DATABASE_AUTH_TOKEN` | Turso DB token |
-
-### 2. GitHub Environments Setup
-
-Go to: `Settings → Environments`, create:
-- `production` — no extra rules (auto-deploy on main)
-- `staging` — manual approval required
-- `preview` — for PR previews
-
-### 3. Environment Variables on Fly.io
+### 2. Vercel Project Setup (One-time)
 
 ```bash
-flyctl secrets set \
-  DATABASE_URL="libsql://your-db.turso.io" \
-  DATABASE_AUTH_TOKEN="your-token" \
-  BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
-  BETTER_AUTH_URL="https://your-app.fly.dev" \
-  QUORUM_CONTRACT_ADDRESS="<YOUR_ADDRESS>" \
-  APTOS_NODE_URL="https://fullnode.testnet.aptoslabs.com/v1" \
-  APTOS_PRIVATE_KEY="<SERVER_PRIVATE_KEY>" \
-  SHELBY_BASE_URL="https://api.shelbynet.shelby.xyz/v1" \
-  SHELBY_API_KEY="<KEY>" \
-  SHELBY_NETWORK="SHELBYNET" \
-  VITE_CONTRACT_ADDRESS="<YOUR_ADDRESS>" \
-  VITE_APTOS_NODE_URL="https://fullnode.testnet.aptoslabs.com/v1" \
-  HUGGINGFACE_TOKEN="hf_..."
+# Install Vercel CLI
+pnpm add -g vercel
+
+# Link project (run from apps/web/)
+cd apps/web
+vercel link
+
+# Set environment variables on Vercel
+vercel env add DATABASE_URL production
+vercel env add DATABASE_AUTH_TOKEN production
+vercel env add BETTER_AUTH_SECRET production
+vercel env add BETTER_AUTH_URL production
+vercel env add QUORUM_CONTRACT_ADDRESS production
+vercel env add APTOS_NODE_URL production
+vercel env add APTOS_PRIVATE_KEY production
+vercel env add SHELBY_API_KEY production
+vercel env add SHELBY_NETWORK production
+vercel env add SHELBY_BASE_URL production
+vercel env add VITE_CONTRACT_ADDRESS production
+vercel env add VITE_APTOS_NODE_URL production
+vercel env add HUGGINGFACE_TOKEN production  # optional
 ```
 
-### 4. Database Migration
+### 3. Database Migration (Turso)
 
 ```bash
-# Generate any pending migrations
-pnpm --filter @quorum/db db:generate
-
-# Apply to production Turso DB
+# Apply migrations to production Turso DB
 DATABASE_URL="libsql://..." DATABASE_AUTH_TOKEN="..." \
   pnpm --filter @quorum/db db:migrate
 
-# Seed default Genesis DAO
+# Seed default DAO
 DATABASE_URL="libsql://..." DATABASE_AUTH_TOKEN="..." pnpm seed
 ```
 
-### 5. Deploy
+### 4. Deploy
 
 ```bash
-# Manual deploy (or just push to main — GitHub Actions will handle it)
-flyctl deploy --remote-only
+# Manual deploy from apps/web/
+vercel --prod
+
+# Or push to main — GitHub Actions handles it automatically
+git push origin main
 ```
+
+### 5. GitHub Environments Setup
+
+`Settings → Environments`:
+- `production` — branch protection: `main` only
+- (preview is automatic via `preview.yml` workflow)
 
 ---
 
