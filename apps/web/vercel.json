@@ -1,10 +1,23 @@
 {
-  "buildCommand": "cd ../.. && NITRO_PRESET=vercel pnpm --filter @quorum/web build",
-  "outputDirectory": "apps/web/.output",
+  "buildCommand": "cd ../.. && pnpm --filter @quorum/web build",
+  "outputDirectory": "dist/client",
   "installCommand": "pnpm install --frozen-lockfile",
   "framework": null,
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/server" }],
-  "env": {
-    "NITRO_PRESET": "vercel"
-  }
+  "functions": {
+    "api/index.js": {
+      "runtime": "nodejs22.x",
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/_build/:match*",
+      "destination": "/_build/:match*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/api/index"
+    }
+  ]
 }
