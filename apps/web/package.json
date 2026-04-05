@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "start": "vite preview",
+    "start": "node server.mjs",
+    "start:preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "biome lint .",
     "format": "biome format . --write",

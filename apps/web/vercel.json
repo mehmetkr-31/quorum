@@ -5,8 +5,8 @@
   "framework": null,
   "rewrites": [
     {
-      "source": "/_build/:match*",
-      "destination": "/_build/:match*"
+      "source": "/assets/:match*",
+      "destination": "/assets/:match*"
     },
     {
       "source": "/(.*)",
