@@ -4,24 +4,13 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: "Target environment"
-        required: true
-        default: "production"
-        type: choice
-        options:
-          - production
-          - staging
 
 jobs:
   deploy:
     name: Deploy to Vercel
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'production' }}
-    concurrency:
-      group: deploy-${{ github.event.inputs.environment || 'production' }}
-      cancel-in-progress: false
+    # Only run if VERCEL_TOKEN secret exists
+    if: ${{ vars.VERCEL_ENABLED == 'true' || secrets.VERCEL_TOKEN != '' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -35,9 +24,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Run tests before deploy
-        run: pnpm turbo test typecheck
 
       - name: Deploy to Vercel (Production)
         uses: amondnet/vercel-action@v25

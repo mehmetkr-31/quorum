@@ -4,6 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const mockFetch = vi.fn()
 vi.stubGlobal("fetch", mockFetch)
 
+// console.error'u mock et — beklenen hataları CI log'larını kirletmesin
+vi.stubGlobal("console", { ...console, error: vi.fn(), debug: vi.fn() })
+
 // better-auth client mock
 vi.mock("better-auth/client", () => ({
   createAuthClient: () => ({
