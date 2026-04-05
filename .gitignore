@@ -39,4 +39,4 @@ pnpm-debug.log*
 
 # aptos
 .aptos/
-.tmp
+.tmp.claude/
