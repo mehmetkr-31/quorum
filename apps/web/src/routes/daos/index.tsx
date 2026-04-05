@@ -1,6 +1,6 @@
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { toast } from "sonner"
 import { orpc } from "../../utils/orpc"
@@ -12,6 +12,7 @@ export const Route = createFileRoute("/daos/")({
 function DaosPage() {
   const { connected, account } = useWallet()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const { data: daos, isLoading } = useQuery(orpc.dao.list.queryOptions())
   const createMutation = useMutation(orpc.dao.create.mutationOptions())
 
@@ -46,12 +47,14 @@ function DaosPage() {
         ownerAddress: account.address.toString(),
         treasuryAddress: account.address.toString(),
       })
-      toast.success(`DAO created: ${result.slug}`)
+      toast.success(`DAO created! Let's set it up.`)
       setName("")
       setSlug("")
       setDescription("")
       setShowForm(false)
       queryClient.invalidateQueries({ queryKey: orpc.dao.list.queryOptions().queryKey })
+      // Redirect to the new DAO with onboarding flag
+      navigate({ to: "/daos/$slug", params: { slug: result.slug }, search: { onboarding: "1" } })
     } catch (e: unknown) {
       toast.error((e as Error).message || "Failed to create DAO")
     }

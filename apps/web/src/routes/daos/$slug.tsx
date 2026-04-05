@@ -7,12 +7,17 @@ import { orpc } from "../../utils/orpc"
 
 export const Route = createFileRoute("/daos/$slug")({
   component: DaoDetailPage,
+  validateSearch: (search: Record<string, unknown>): { onboarding?: "1" } => ({
+    ...(search.onboarding === "1" ? { onboarding: "1" as const } : {}),
+  }),
 })
 
 function DaoDetailPage() {
   const { slug } = Route.useParams()
+  const { onboarding } = Route.useSearch()
   const { connected, account } = useWallet()
   const queryClient = useQueryClient()
+  const [showOnboarding, setShowOnboarding] = useState(!!onboarding)
 
   const { data: dao, isLoading: daoLoading } = useQuery(
     orpc.dao.get.queryOptions({ input: { slugOrId: slug } }),
@@ -47,10 +52,13 @@ function DaoDetailPage() {
   const createDatasetMutation = useMutation(orpc.dataset.create.mutationOptions())
   const createProposalMutation = useMutation(orpc.proposal.create.mutationOptions())
   const voteProposalMutation = useMutation(orpc.proposal.vote.mutationOptions())
+  const pushToHubMutation = useMutation(orpc.dataset.pushToHub.mutationOptions())
 
   const [showDatasetForm, setShowDatasetForm] = useState(false)
   const [datasetName, setDatasetName] = useState("")
   const [datasetDesc, setDatasetDesc] = useState("")
+  const [pushingDatasetId, setPushingDatasetId] = useState<string | null>(null)
+  const [hfRepoInput, setHfRepoInput] = useState<Record<string, string>>({})
   const [activeTab, setActiveTab] = useState<"overview" | "datasets" | "members" | "governance">(
     "overview",
   )
@@ -175,6 +183,28 @@ function DaoDetailPage() {
     }
   }
 
+  const handlePushToHub = async (datasetId: string) => {
+    const repoId = hfRepoInput[datasetId]?.trim()
+    if (!repoId) {
+      toast.error("Enter HuggingFace repo ID (e.g. username/dataset-name)")
+      return
+    }
+    if (!/^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+$/.test(repoId)) {
+      toast.error("Format: username/dataset-name")
+      return
+    }
+    setPushingDatasetId(datasetId)
+    try {
+      const result = await pushToHubMutation.mutateAsync({ datasetId, repoId })
+      toast.success(`Pushed to HuggingFace! ${result.recordCount} records → ${repoId}`)
+      setHfRepoInput((prev) => ({ ...prev, [datasetId]: "" }))
+    } catch (e: unknown) {
+      toast.error((e as Error).message || "Push failed")
+    } finally {
+      setPushingDatasetId(null)
+    }
+  }
+
   if (daoLoading) {
     return (
       <div className="min-h-screen pt-28 flex justify-center">
@@ -257,6 +287,61 @@ function DaoDetailPage() {
           </div>
         </div>
 
+        {/* Onboarding Banner */}
+        {showOnboarding && (
+          <div className="mb-8 p-5 rounded-2xl border border-primary/30 bg-primary/5 relative">
+            <button
+              type="button"
+              onClick={() => setShowOnboarding(false)}
+              className="absolute top-4 right-4 material-symbols-outlined text-on-surface-variant/40 hover:text-on-surface-variant transition-colors bg-transparent border-none p-0 cursor-pointer"
+            >
+              close
+            </button>
+            <h3 className="text-base font-bold text-primary mb-2">🎉 Your DAO is live!</h3>
+            <p className="text-sm text-on-surface-variant/70 mb-4">Get started in 3 steps:</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {[
+                {
+                  step: "1",
+                  title: "Create a Dataset",
+                  desc: "Go to the Datasets tab and create your first AI training dataset",
+                  tab: "datasets",
+                },
+                {
+                  step: "2",
+                  title: "Invite Members",
+                  desc: "Share your DAO link so contributors can join and start submitting data",
+                  tab: "members",
+                },
+                {
+                  step: "3",
+                  title: "Create a Proposal",
+                  desc: "Use the Governance tab to set up voting rules for your community",
+                  tab: "governance",
+                },
+              ].map((s) => (
+                <button
+                  key={s.step}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(s.tab as typeof activeTab)
+                    setShowOnboarding(false)
+                  }}
+                  className="p-4 rounded-xl bg-surface-container/50 border border-outline-variant/15 text-left hover:border-primary/30 hover:bg-surface-container transition-all"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-black flex items-center justify-center">
+                      {s.step}
+                    </span>
+                    <span className="text-sm font-bold text-on-surface">{s.title}</span>
+                  </div>
+                  <p className="text-xs text-on-surface-variant/60">{s.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Stats Bar */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           {[
@@ -303,68 +388,168 @@ function DaoDetailPage() {
 
         {/* Tab Content */}
         {activeTab === "overview" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Recent Datasets */}
-            <div>
-              <h3 className="text-lg font-bold text-on-surface mb-4">Datasets</h3>
-              {(datasets ?? []).length === 0 ? (
-                <p className="text-sm text-on-surface-variant/50">No datasets yet</p>
-              ) : (
-                <div className="space-y-3">
-                  {(datasets ?? []).slice(0, 5).map((ds) => (
-                    <div
-                      key={ds.id}
-                      className="p-4 rounded-xl border border-outline-variant/15 bg-surface-container/30"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold text-on-surface">{ds.name}</span>
-                        <span className="text-xs text-on-surface-variant/50">
-                          {ds.contributionCount} contributions
-                        </span>
-                      </div>
-                      {ds.description && (
-                        <p className="text-xs text-on-surface-variant/60 mt-1 line-clamp-1">
-                          {ds.description}
-                        </p>
-                      )}
-                    </div>
-                  ))}
+          <div className="space-y-8">
+            {/* Analytics row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                {
+                  label: "Total Contributions",
+                  value: stats?.totalContributions ?? 0,
+                  icon: "upload_file",
+                  color: "text-primary",
+                },
+                {
+                  label: "Total Members",
+                  value: stats?.totalMembers ?? 0,
+                  icon: "group",
+                  color: "text-secondary",
+                },
+                {
+                  label: "Active Proposals",
+                  value: proposalStats?.active ?? 0,
+                  icon: "how_to_vote",
+                  color: "text-tertiary",
+                },
+                {
+                  label: "Datasets",
+                  value: stats?.totalDatasets ?? 0,
+                  icon: "database",
+                  color: "text-teal-400",
+                },
+              ].map((s) => (
+                <div
+                  key={s.label}
+                  className="p-4 rounded-xl border border-outline-variant/15 bg-surface-container/40"
+                >
+                  <span className={`material-symbols-outlined ${s.color} text-xl mb-2 block`}>
+                    {s.icon}
+                  </span>
+                  <div className="text-2xl font-bold text-on-surface">{s.value}</div>
+                  <div className="text-xs text-on-surface-variant/50 mt-0.5">{s.label}</div>
                 </div>
-              )}
+              ))}
             </div>
 
-            {/* Members */}
-            <div>
-              <h3 className="text-lg font-bold text-on-surface mb-4">Top Members</h3>
-              {(members ?? []).length === 0 ? (
-                <p className="text-sm text-on-surface-variant/50">No members yet</p>
-              ) : (
-                <div className="space-y-2">
-                  {(members ?? []).slice(0, 8).map((m, i) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center justify-between p-3 rounded-xl border border-outline-variant/10 bg-surface-container/20"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-on-surface-variant/40 w-5">
-                          #{i + 1}
-                        </span>
-                        <span className="text-sm font-mono text-on-surface">
-                          {m.memberAddress.slice(0, 8)}...{m.memberAddress.slice(-4)}
-                        </span>
-                        {m.role !== "member" && (
-                          <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                            {m.role}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Recent Datasets */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-on-surface">Datasets</h3>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("datasets")}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    View all
+                  </button>
+                </div>
+                {(datasets ?? []).length === 0 ? (
+                  <p className="text-sm text-on-surface-variant/50">No datasets yet</p>
+                ) : (
+                  <div className="space-y-3">
+                    {(datasets ?? []).slice(0, 5).map((ds) => (
+                      <div
+                        key={ds.id}
+                        className="p-4 rounded-xl border border-outline-variant/15 bg-surface-container/30"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold text-on-surface">{ds.name}</span>
+                          <span className="text-xs text-on-surface-variant/50">
+                            {ds.contributionCount} contributions
                           </span>
+                        </div>
+                        {ds.description && (
+                          <p className="text-xs text-on-surface-variant/60 mt-1 line-clamp-1">
+                            {ds.description}
+                          </p>
                         )}
                       </div>
-                      <span className="text-xs font-bold text-on-surface-variant/60">
-                        VP: {m.votingPower}
-                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Recent Proposals + Top Members */}
+              <div className="space-y-6">
+                {/* Active proposals */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-base font-bold text-on-surface">Active Proposals</h3>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("governance")}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      View all
+                    </button>
+                  </div>
+                  {(proposalList ?? []).filter((p) => p.status === "active").length === 0 ? (
+                    <p className="text-sm text-on-surface-variant/50">No active proposals</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(proposalList ?? [])
+                        .filter((p) => p.status === "active")
+                        .slice(0, 3)
+                        .map((p) => (
+                          <div
+                            key={p.id}
+                            className="flex items-center justify-between p-3 rounded-xl border border-outline-variant/10 bg-surface-container/20"
+                          >
+                            <span className="text-sm text-on-surface truncate flex-1">
+                              {p.title}
+                            </span>
+                            <span className="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded ml-2 whitespace-nowrap">
+                              {p.totalPower} VP
+                            </span>
+                          </div>
+                        ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
+
+                {/* Top Members */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-base font-bold text-on-surface">Top Members</h3>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("members")}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      View all
+                    </button>
+                  </div>
+                  {(members ?? []).length === 0 ? (
+                    <p className="text-sm text-on-surface-variant/50">No members yet</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(members ?? []).slice(0, 5).map((m, i) => (
+                        <div
+                          key={m.id}
+                          className="flex items-center justify-between p-3 rounded-xl border border-outline-variant/10 bg-surface-container/20"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-bold text-on-surface-variant/40 w-5">
+                              #{i + 1}
+                            </span>
+                            <span className="text-sm font-mono text-on-surface">
+                              {m.memberAddress.slice(0, 8)}...{m.memberAddress.slice(-4)}
+                            </span>
+                            {m.role !== "member" && (
+                              <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                                {m.role}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs font-bold text-on-surface-variant/60">
+                            VP: {m.votingPower}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -466,7 +651,7 @@ function DaoDetailPage() {
                       <span>{ds.contributionCount} contributions</span>
                       <span>Weight: {ds.totalWeight.toFixed(1)}</span>
                     </div>
-                    <div className="mt-3 flex gap-2">
+                    <div className="mt-3 flex flex-wrap gap-2">
                       <Link
                         to="/contribute"
                         className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
@@ -484,6 +669,42 @@ function DaoDetailPage() {
                         Copy ID
                       </button>
                     </div>
+                    {/* HuggingFace push */}
+                    {connected && membership && (
+                      <div className="mt-3 pt-3 border-t border-outline-variant/10">
+                        <div className="flex gap-2">
+                          <input
+                            value={hfRepoInput[ds.id] ?? ""}
+                            onChange={(e) =>
+                              setHfRepoInput((prev) => ({
+                                ...prev,
+                                [ds.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="username/dataset-name"
+                            className="flex-1 min-w-0 px-3 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant/20 text-on-surface placeholder:text-on-surface-variant/30 text-xs font-mono focus:border-orange-400/50 focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handlePushToHub(ds.id)}
+                            disabled={pushingDatasetId === ds.id || !hfRepoInput[ds.id]?.trim()}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-400/10 text-orange-400 text-xs font-bold hover:bg-orange-400/20 transition-colors disabled:opacity-50 whitespace-nowrap"
+                          >
+                            {pushingDatasetId === ds.id ? (
+                              <span className="animate-spin material-symbols-outlined text-sm">
+                                progress_activity
+                              </span>
+                            ) : (
+                              <span className="material-symbols-outlined text-sm">upload</span>
+                            )}
+                            {pushingDatasetId === ds.id ? "Pushing..." : "Push to HF"}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-on-surface-variant/30 mt-1">
+                          Push approved contributions to HuggingFace Hub
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

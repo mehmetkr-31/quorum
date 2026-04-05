@@ -15,7 +15,8 @@
     "format": "biome format . --write",
     "indexer": "tsx src/indexer.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@aptos-labs/ts-sdk": "^6.3.1",

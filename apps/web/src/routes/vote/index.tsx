@@ -285,12 +285,26 @@ function VotePage() {
     }
   }
 
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
   return (
     <>
       <div className="flex mt-20" style={{ height: "calc(100vh - 80px)", overflow: "hidden" }}>
+        {/* Mobile sidebar toggle */}
+        <button
+          type="button"
+          className="md:hidden fixed bottom-6 left-6 z-50 w-12 h-12 rounded-full bg-primary text-on-primary shadow-lg flex items-center justify-center"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+        >
+          <span className="material-symbols-outlined">{sidebarOpen ? "close" : "menu"}</span>
+        </button>
+
         {/* Left Sidebar */}
-        <aside className="w-80 shrink-0 border-r border-outline-variant/10 bg-surface-container-lowest/40 backdrop-blur-3xl flex flex-col">
-          <div className="p-10">
+        <aside
+          className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:relative z-40 w-80 shrink-0 border-r border-outline-variant/10 bg-surface-container-lowest/40 backdrop-blur-3xl flex flex-col transition-transform duration-300`}
+          style={{ height: "calc(100vh - 80px)" }}
+        >
+          <div className="p-10 overflow-y-auto">
             <div className="text-xl font-headline font-black tracking-[0.2em] text-on-surface mb-10">
               <span className="text-gradient">NEURAL</span>_DAO
             </div>

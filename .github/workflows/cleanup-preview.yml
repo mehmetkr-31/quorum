@@ -1,0 +1,20 @@
+name: Cleanup Preview
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  cleanup:
+    name: Destroy PR Preview
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Destroy preview app
+        run: |
+          APP_NAME="quorum-pr-${{ github.event.pull_request.number }}"
+          flyctl apps destroy "$APP_NAME" --yes || true
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
