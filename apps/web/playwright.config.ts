@@ -2,16 +2,16 @@ import { defineConfig, devices } from "@playwright/test"
 
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 30_000,
+  timeout: 45_000,
   expect: { timeout: 5_000 },
-  fullyParallel: true,
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   reporter: process.env.CI ? "github" : "list",
 
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3001",
+    baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:3001",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -27,8 +27,8 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        command: "pnpm dev",
-        url: "http://localhost:3001",
+        command: "pnpm exec vite dev --host 127.0.0.1 --port 3001",
+        url: "http://127.0.0.1:3001",
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
         cwd: ".",

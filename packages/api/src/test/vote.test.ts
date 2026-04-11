@@ -1,5 +1,5 @@
 import { call } from "@orpc/server"
-import { contributions, datasets, votes } from "@quorum/db"
+import { contributions, daoMemberships, datasets, votes } from "@quorum/db"
 import { eq } from "drizzle-orm"
 import { beforeEach, describe, expect, it } from "vitest"
 import { contributionRouter } from "../routers/contribution"
@@ -38,6 +38,29 @@ describe("voteRouter", () => {
       ownerAddress: CONTRIBUTOR,
       createdAt: new Date(),
     })
+    await db.insert(daoMemberships).values([
+      {
+        id: "m1",
+        daoId: DAO_ID,
+        memberAddress: VOTER1,
+        votingPower: 10,
+        joinedAt: new Date(),
+      },
+      {
+        id: "m2",
+        daoId: DAO_ID,
+        memberAddress: VOTER2,
+        votingPower: 7,
+        joinedAt: new Date(),
+      },
+      {
+        id: "m3",
+        daoId: DAO_ID,
+        memberAddress: VOTER3,
+        votingPower: 5,
+        joinedAt: new Date(),
+      },
+    ])
 
     const result = await call(
       contributionRouter.submit,
@@ -54,6 +77,7 @@ describe("voteRouter", () => {
   })
 
   it("cast: oyu DB'ye kaydeder ve id döner", async () => {
+    ctx.session!.walletAddress = VOTER1
     const result = await call(
       voteRouter.cast,
       { contributionId, decision: "approve", aptosTxHash: TX1, voterAddress: VOTER1 },
@@ -69,6 +93,7 @@ describe("voteRouter", () => {
   })
 
   it("cast: contribution status'u pending'de bırakır (indexer değiştirir)", async () => {
+    ctx.session!.walletAddress = VOTER1
     await call(
       voteRouter.cast,
       { contributionId, decision: "approve", aptosTxHash: TX2, voterAddress: VOTER1 },
@@ -80,16 +105,19 @@ describe("voteRouter", () => {
   })
 
   it("cast: farklı kararları kaydeder (approve/reject/improve)", async () => {
+    ctx.session!.walletAddress = VOTER1
     await call(
       voteRouter.cast,
       { contributionId, decision: "approve", aptosTxHash: TX1, voterAddress: VOTER1 },
       { context: ctx },
     )
+    ctx.session!.walletAddress = VOTER2
     await call(
       voteRouter.cast,
       { contributionId, decision: "reject", aptosTxHash: TX2, voterAddress: VOTER2 },
       { context: ctx },
     )
+    ctx.session!.walletAddress = VOTER3
     await call(
       voteRouter.cast,
       { contributionId, decision: "improve", aptosTxHash: TX3, voterAddress: VOTER3 },
@@ -105,11 +133,13 @@ describe("voteRouter", () => {
   })
 
   it("listHistory: oy geçmişini döner", async () => {
+    ctx.session!.walletAddress = VOTER1
     await call(
       voteRouter.cast,
       { contributionId, decision: "approve", aptosTxHash: TX1, voterAddress: VOTER1 },
       { context: ctx },
     )
+    ctx.session!.walletAddress = VOTER2
     await call(
       voteRouter.cast,
       { contributionId, decision: "reject", aptosTxHash: TX2, voterAddress: VOTER2 },

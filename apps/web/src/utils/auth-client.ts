@@ -4,12 +4,61 @@ export const authClient = createAuthClient({
   baseURL: typeof window !== "undefined" ? window.location.origin : "http://localhost:3001",
 })
 
+function encodeHex(bytes: Uint8Array) {
+  return `0x${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`
+}
+
+function serializeCryptoValue(value: unknown): string {
+  if (typeof value === "string") return value
+  if (value instanceof Uint8Array) return encodeHex(value)
+
+  if (typeof value === "object" && value !== null) {
+    const maybeWithBytes = value as {
+      toString?: () => string
+      toUint8Array?: () => Uint8Array
+      data?: Uint8Array | number[] | string
+      value?: unknown
+    }
+
+    if (typeof maybeWithBytes.toString === "function") {
+      const stringValue = maybeWithBytes.toString()
+      if (stringValue && stringValue !== "[object Object]") return stringValue
+    }
+
+    if (typeof maybeWithBytes.toUint8Array === "function") {
+      return encodeHex(maybeWithBytes.toUint8Array())
+    }
+
+    if (maybeWithBytes.data instanceof Uint8Array) {
+      return encodeHex(maybeWithBytes.data)
+    }
+
+    if (Array.isArray(maybeWithBytes.data)) {
+      return encodeHex(Uint8Array.from(maybeWithBytes.data))
+    }
+
+    if (typeof maybeWithBytes.data === "string") {
+      return maybeWithBytes.data
+    }
+
+    if ("value" in maybeWithBytes && maybeWithBytes.value !== value) {
+      return serializeCryptoValue(maybeWithBytes.value)
+    }
+  }
+
+  throw new Error("Wallet returned an unsupported crypto value format.")
+}
+
 export async function walletSignIn(params: {
   address: string
-  publicKey: string
-  signMessage: (args: { message: string; nonce: string }) => Promise<{ signature: string }>
+  publicKey: unknown
+  signMessage: (args: {
+    message: string
+    nonce: string
+  }) => Promise<{ signature: unknown; fullMessage?: string }>
 }): Promise<boolean> {
   const { address, publicKey, signMessage } = params
+  const serializedPublicKey = serializeCryptoValue(publicKey)
 
   // 1. Nonce al
   const nonceRes = await fetch("/api/auth/wallet/nonce", {
@@ -25,9 +74,13 @@ export async function walletSignIn(params: {
   // 2. Mesaj oluştur ve imzala
   const message = `Quorum DAO'ya giriş\nAdres: ${address}\nNonce: ${nonce}`
   let signature: string
+  let signedMessage = message
   try {
     const result = await signMessage({ message, nonce })
-    signature = typeof result.signature === "string" ? result.signature : String(result.signature)
+    signature = serializeCryptoValue(result.signature)
+    if (typeof result.fullMessage === "string" && result.fullMessage.length > 0) {
+      signedMessage = result.fullMessage
+    }
     console.debug(
       "[Auth] signature type:",
       typeof result.signature,
@@ -43,7 +96,12 @@ export async function walletSignIn(params: {
   const verifyRes = await fetch("/api/auth/wallet/verify", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ address, publicKey, signature, message }),
+    body: JSON.stringify({
+      address,
+      publicKey: serializedPublicKey,
+      signature,
+      message: signedMessage,
+    }),
     credentials: "include",
   })
   console.debug("[Auth] verify:", verifyRes.status)

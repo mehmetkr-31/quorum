@@ -63,7 +63,7 @@ describe("WalletButton", () => {
       disconnect: vi.fn(),
       connect: vi.fn(),
       wallets: [],
-      signMessage: vi.fn(),
+      signMessage: null,
     })
     renderWithProvider(<WalletButton />)
     expect(screen.getByText(/0x1234\.\.\.cdef/i)).toBeInTheDocument()
@@ -79,7 +79,7 @@ describe("WalletButton", () => {
       disconnect: vi.fn(),
       connect: vi.fn(),
       wallets: [],
-      signMessage: vi.fn(),
+      signMessage: null,
     })
     renderWithProvider(<WalletButton />)
     expect(screen.getByRole("button", { name: /Disconnect/i })).toBeInTheDocument()

@@ -15,6 +15,21 @@ import { expect, type Page } from "@playwright/test"
 /** Install a mock AptosWalletAdapter into the page so the UI behaves as if
  *  a wallet is connected without needing the Petra extension. */
 export async function mockWalletConnected(page: Page, address = "0xdeadbeefcafe") {
+  await page.route("**/api/auth/wallet/nonce", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ nonce: "e2e-nonce" }),
+    })
+  })
+  await page.route("**/api/auth/wallet/verify", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, user: { id: "e2e-user", walletAddress: address } }),
+    })
+  })
+
   await page.addInitScript(
     ({ addr }) => {
       // The AptosWalletAdapterProvider reads from window.aptos (Petra legacy)
@@ -43,7 +58,8 @@ export async function mockWalletConnected(page: Page, address = "0xdeadbeefcafe"
 
 /** Wait for the page to be fully loaded (no network/spinner). */
 export async function waitForPageReady(page: Page) {
-  await page.waitForLoadState("networkidle")
+  await page.waitForLoadState("domcontentloaded")
+  await expect(page.locator("body")).toBeVisible()
 }
 
 /** Assert a toast notification appears with the given text. */

@@ -25,8 +25,8 @@ test.describe("Contribute page — unauthenticated state", () => {
   test("DAO selector is present and has a default empty option", async ({ page }) => {
     const daoSelect = page.locator("select#daoId")
     await expect(daoSelect).toBeVisible()
-    const defaultOpt = daoSelect.locator("option[value='']")
-    await expect(defaultOpt).toBeVisible()
+    await expect(daoSelect).toHaveValue("")
+    await expect(daoSelect).toContainText("Select a DAO...")
   })
 
   test("dataset selector is disabled until DAO is selected", async ({ page }) => {

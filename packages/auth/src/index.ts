@@ -50,6 +50,14 @@ export const auth = new Proxy({} as ReturnType<typeof createAuthInstance>, {
 })
 
 function aptosWalletPlugin(): BetterAuthPlugin {
+  function stripHexVariantPrefix(value: string, expectedByteLength: number) {
+    const normalized = value.startsWith("0x") ? value.slice(2) : value
+    if (normalized.length === (expectedByteLength + 1) * 2 && normalized.startsWith("00")) {
+      return `0x${normalized.slice(2)}`
+    }
+    return value
+  }
+
   return {
     id: "aptos-wallet",
     schema: {
@@ -116,12 +124,39 @@ function aptosWalletPlugin(): BetterAuthPlugin {
 
           // Aptos Ed25519 imza doğrulama
           try {
-            const pubKey = new Ed25519PublicKey(publicKey)
-            const sig = new Ed25519Signature(signature)
-            const valid = pubKey.verifySignature({
-              message: new TextEncoder().encode(message),
-              signature: sig,
-            })
+            const verificationMessage = new TextEncoder().encode(message)
+
+            let valid = false
+            const candidatePublicKeys = [
+              publicKey,
+              stripHexVariantPrefix(publicKey, Ed25519PublicKey.LENGTH),
+            ]
+            const candidateSignatures = [
+              signature,
+              stripHexVariantPrefix(signature, Ed25519Signature.LENGTH),
+            ]
+
+            for (const candidatePublicKey of candidatePublicKeys) {
+              for (const candidateSignature of candidateSignatures) {
+                try {
+                  const pubKey = new Ed25519PublicKey(candidatePublicKey)
+                  const sig = new Ed25519Signature(candidateSignature)
+                  if (
+                    pubKey.verifySignature({
+                      message: verificationMessage,
+                      signature: sig,
+                    })
+                  ) {
+                    valid = true
+                    break
+                  }
+                } catch {
+                  // Try the next candidate format.
+                }
+              }
+              if (valid) break
+            }
+
             if (!valid) {
               throw APIError.fromStatus("UNAUTHORIZED", {
                 message: "Geçersiz imza",

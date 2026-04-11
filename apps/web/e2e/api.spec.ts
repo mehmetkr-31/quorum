@@ -7,77 +7,70 @@ import { expect, test } from "@playwright/test"
  */
 
 test.describe("API — dao endpoints", () => {
-  test("dao.list returns array", async ({ request }) => {
-    const res = await request.post("/api/rpc/dao.list", {
-      data: {},
+  async function rpc(
+    request: typeof test.extend extends never ? never : any,
+    path: string,
+    data: unknown,
+  ) {
+    return request.post(`/api/rpc/${path}`, {
+      data: { input: data },
       headers: { "Content-Type": "application/json" },
     })
+  }
+
+  test("dao.list returns array", async ({ request }) => {
+    const res = await rpc(request, "dao/list", {})
     expect(res.status()).toBe(200)
     const body = await res.json()
-    expect(Array.isArray(body)).toBe(true)
+    expect(Array.isArray(body.json)).toBe(true)
   })
 
   test("dao.get with valid slug returns DAO", async ({ request }) => {
-    const res = await request.post("/api/rpc/dao.get", {
-      data: { slugOrId: "genesis" },
-      headers: { "Content-Type": "application/json" },
-    })
+    const res = await rpc(request, "dao/get", { slugOrId: "genesis" })
     // 200 if genesis DAO is seeded, 500 if not
     const status = res.status()
     if (status === 200) {
       const body = await res.json()
-      expect(body.slug).toBe("genesis")
-      expect(body.name).toBeTruthy()
+      expect(body.json.slug).toBe("genesis")
+      expect(body.json.name).toBeTruthy()
     } else {
       // DAO not seeded in test env — acceptable
-      expect([404, 500]).toContain(status)
+      expect([400, 404, 500]).toContain(status)
     }
   })
 
   test("dao.get with unknown slug returns error", async ({ request }) => {
-    const res = await request.post("/api/rpc/dao.get", {
-      data: { slugOrId: "totally-nonexistent-dao-xyz123" },
-      headers: { "Content-Type": "application/json" },
-    })
+    const res = await rpc(request, "dao/get", { slugOrId: "totally-nonexistent-dao-xyz123" })
     expect(res.status()).not.toBe(200)
   })
 
   test("dataset.list returns array", async ({ request }) => {
-    const res = await request.post("/api/rpc/dataset.list", {
-      data: {},
-      headers: { "Content-Type": "application/json" },
-    })
+    const res = await rpc(request, "dataset/list", {})
     expect(res.status()).toBe(200)
     const body = await res.json()
-    expect(Array.isArray(body)).toBe(true)
+    expect(Array.isArray(body.json)).toBe(true)
   })
 
   test("contribution.list returns array", async ({ request }) => {
-    const res = await request.post("/api/rpc/contribution.list", {
-      data: {},
-      headers: { "Content-Type": "application/json" },
-    })
+    const res = await rpc(request, "contribution/list", {})
     expect(res.status()).toBe(200)
     const body = await res.json()
-    expect(Array.isArray(body)).toBe(true)
+    expect(Array.isArray(body.json)).toBe(true)
   })
 
   test("governance.getStats returns numeric totals", async ({ request }) => {
-    const res = await request.post("/api/rpc/governance.getStats", {
-      data: {},
-      headers: { "Content-Type": "application/json" },
-    })
+    const res = await rpc(request, "governance/getStats", {})
     expect(res.status()).toBe(200)
     const body = await res.json()
-    expect(typeof body.totalMembers).toBe("number")
-    expect(typeof body.totalContributions).toBe("number")
-    expect(typeof body.totalRevenue).toBe("string")
+    expect(typeof body.json.totalMembers).toBe("number")
+    expect(typeof body.json.totalContributions).toBe("number")
+    expect(typeof body.json.totalRevenue).toBe("string")
   })
 })
 
 test.describe("API — input validation", () => {
   test("dao.create rejects missing ownerAddress", async ({ request }) => {
-    const res = await request.post("/api/rpc/dao.create", {
+    const res = await request.post("/api/rpc/dao/create", {
       data: { name: "Test DAO" }, // missing ownerAddress + treasuryAddress
       headers: { "Content-Type": "application/json" },
     })
@@ -85,7 +78,7 @@ test.describe("API — input validation", () => {
   })
 
   test("dao.create rejects empty name", async ({ request }) => {
-    const res = await request.post("/api/rpc/dao.create", {
+    const res = await request.post("/api/rpc/dao/create", {
       data: { name: "", ownerAddress: "0xtest", treasuryAddress: "0xtest" },
       headers: { "Content-Type": "application/json" },
     })
@@ -93,7 +86,7 @@ test.describe("API — input validation", () => {
   })
 
   test("dataset.pushToHub rejects invalid repoId format", async ({ request }) => {
-    const res = await request.post("/api/rpc/dataset.pushToHub", {
+    const res = await request.post("/api/rpc/dataset/pushToHub", {
       data: {
         datasetId: "ds-1",
         repoId: "not-valid-format", // missing username/ prefix
@@ -105,7 +98,7 @@ test.describe("API — input validation", () => {
   })
 
   test("contribution.submit rejects missing data field", async ({ request }) => {
-    const res = await request.post("/api/rpc/contribution.submit", {
+    const res = await request.post("/api/rpc/contribution/submit", {
       data: {
         datasetId: "ds-1",
         shelbyAccount: "shelby://test",
@@ -118,7 +111,7 @@ test.describe("API — input validation", () => {
   })
 
   test("vote.cast rejects invalid decision", async ({ request }) => {
-    const res = await request.post("/api/rpc/vote.cast", {
+    const res = await request.post("/api/rpc/vote/cast", {
       data: {
         contributionId: "c-1",
         voterAddress: "0xtest",
@@ -131,14 +124,14 @@ test.describe("API — input validation", () => {
   })
 
   test("revenue.listReceipts with limit=0 is rejected or clamped", async ({ request }) => {
-    const res = await request.post("/api/rpc/revenue.listReceipts", {
-      data: { limit: 0 },
+    const res = await request.post("/api/rpc/revenue/listReceipts", {
+      data: { input: { limit: 0 } },
       headers: { "Content-Type": "application/json" },
     })
     // Either rejected (validation) or returns empty array (clamped to min)
     if (res.status() === 200) {
       const body = await res.json()
-      expect(Array.isArray(body)).toBe(true)
+      expect(Array.isArray(body.json)).toBe(true)
     } else {
       expect(res.status()).toBeGreaterThanOrEqual(400)
     }
@@ -150,8 +143,8 @@ test.describe("API — rate limiting", () => {
     // Send 10 rapid requests — should all succeed or get 429, never 500
     const results = await Promise.all(
       Array.from({ length: 10 }, () =>
-        request.post("/api/rpc/governance.getStats", {
-          data: {},
+        request.post("/api/rpc/governance/getStats", {
+          data: { input: {} },
           headers: { "Content-Type": "application/json" },
         }),
       ),

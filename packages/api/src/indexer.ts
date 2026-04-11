@@ -13,7 +13,6 @@ import {
   daos,
   datasets,
   indexerState,
-  members,
   receipts,
   votes,
 } from "@quorum/db"
@@ -79,34 +78,25 @@ async function saveLastVersion(version: bigint) {
     })
 }
 
-// Upsert a minimal DAO row so FK constraints pass.
-async function ensureDao(daoId: string) {
-  await db
-    .insert(daos)
-    .values({
-      id: daoId,
-      name: daoId,
-      slug: daoId.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-      ownerAddress: CONTRACT_ADDRESS!,
-      treasuryAddress: CONTRACT_ADDRESS!,
-      createdAt: new Date(),
-    })
-    .onConflictDoNothing()
+async function requireDao(daoId: string) {
+  const [dao] = await db.select({ id: daos.id }).from(daos).where(eq(daos.id, daoId)).limit(1)
+  if (!dao) throw new Error(`DAO ${daoId} not found locally; refusing synthetic indexer insert`)
 }
 
-// Upsert a minimal dataset row so FK constraints on contributions/receipts pass.
-async function ensureDataset(datasetId: string, daoId?: string) {
-  if (daoId) await ensureDao(daoId)
-  await db
-    .insert(datasets)
-    .values({
-      id: datasetId,
-      daoId: daoId || "dao-1", // fallback to default DAO
-      name: datasetId,
-      ownerAddress: CONTRACT_ADDRESS!,
-      createdAt: new Date(),
-    })
-    .onConflictDoNothing()
+async function requireDataset(datasetId: string, daoId?: string) {
+  const [dataset] = await db
+    .select({ id: datasets.id, daoId: datasets.daoId })
+    .from(datasets)
+    .where(eq(datasets.id, datasetId))
+    .limit(1)
+
+  if (!dataset) {
+    throw new Error(`Dataset ${datasetId} not found locally; refusing synthetic indexer insert`)
+  }
+
+  if (daoId && dataset.daoId !== daoId) {
+    throw new Error(`Dataset ${datasetId} belongs to ${dataset.daoId}, event says ${daoId}`)
+  }
 }
 
 // ── Event interfaces ──────────────────────────────────────────────────────────
@@ -187,7 +177,7 @@ async function processEvents(exitAfter = false) {
             const daoId = hexToString(d.dao_id)
             console.log(`  [DAOMemberJoined] ${d.member} joined ${daoId}`)
 
-            await ensureDao(daoId)
+            await requireDao(daoId)
             const membershipId = `${daoId}-${d.member}`
             await db
               .insert(daoMemberships)
@@ -199,14 +189,6 @@ async function processEvents(exitAfter = false) {
               })
               .onConflictDoNothing()
 
-            // Also ensure global members table
-            await db
-              .insert(members)
-              .values({
-                address: d.member,
-                joinedAt: new Date(Number(BigInt(d.timestamp) / 1000n)),
-              })
-              .onConflictDoNothing()
             totalProcessed++
           }
 
@@ -226,7 +208,7 @@ async function processEvents(exitAfter = false) {
               `  [ContributionSubmitted] ${contribId}  (dao: ${daoId ?? "?"}, dataset: ${datasetId})`,
             )
 
-            await ensureDataset(datasetId, daoId)
+            await requireDataset(datasetId, daoId)
             await db
               .insert(contributions)
               .values({
@@ -261,16 +243,6 @@ async function processEvents(exitAfter = false) {
             console.log(
               `  [VoteCast] ${d.voter} → ${decisionStr} on ${contribId} (dao: ${daoId ?? "?"})`,
             )
-
-            // Upsert global member
-            await db
-              .insert(members)
-              .values({
-                address: d.voter,
-                votingPower: Number(d.voting_power),
-                joinedAt: new Date(),
-              })
-              .onConflictDoNothing()
 
             // Update DAO membership voting power if dao_id available
             if (daoId) {
@@ -339,16 +311,6 @@ async function processEvents(exitAfter = false) {
                     total_contributions?: number
                     voting_power?: number
                   }
-                  // Update global members table
-                  await db
-                    .update(members)
-                    .set({
-                      approvedContributions: Number(memberResource.approved_contributions ?? 0),
-                      totalContributions: Number(memberResource.total_contributions ?? 0),
-                      votingPower: Number(memberResource.voting_power ?? 1),
-                    })
-                    .where(eq(members.address, contributorAddress))
-
                   // Update DAO membership if daoId is known
                   if (daoId) {
                     await db
@@ -393,7 +355,7 @@ async function processEvents(exitAfter = false) {
               `  [ReceiptAnchored] dataset=${datasetId} dao=${daoId ?? "?"} reader=${d.reader}  hash=${receiptHash.slice(0, 16)}...`,
             )
 
-            await ensureDataset(datasetId, daoId)
+            await requireDataset(datasetId, daoId)
             await db
               .insert(receipts)
               .values({

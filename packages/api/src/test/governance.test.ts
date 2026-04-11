@@ -1,5 +1,5 @@
 import { call } from "@orpc/server"
-import { datasets, members, receipts } from "@quorum/db"
+import { daoMemberships, datasets, receipts } from "@quorum/db"
 import { beforeEach, describe, expect, it } from "vitest"
 import { governanceRouter } from "../routers/governance"
 import { createMockContext, createTestDb, setupTestSchema } from "./helpers"
@@ -32,8 +32,20 @@ describe("governanceRouter", () => {
       ownerAddress: "0x1",
       createdAt: new Date(),
     })
-    await db.insert(members).values({ address: "0xm1", votingPower: 5, joinedAt: new Date() })
-    await db.insert(members).values({ address: "0xm2", votingPower: 3, joinedAt: new Date() })
+    await db.insert(daoMemberships).values({
+      id: "m1",
+      daoId: "dao-test",
+      memberAddress: "0xm1",
+      votingPower: 5,
+      joinedAt: new Date(),
+    })
+    await db.insert(daoMemberships).values({
+      id: "m2",
+      daoId: "dao-test",
+      memberAddress: "0xm2",
+      votingPower: 3,
+      joinedAt: new Date(),
+    })
     await db.insert(receipts).values({
       id: "r1",
       datasetId: "d1",
@@ -50,9 +62,29 @@ describe("governanceRouter", () => {
   })
 
   it("listMembers: üyeleri voting power'a göre azalan sıralar", async () => {
-    await db.insert(members).values({ address: "0xlow", votingPower: 1, joinedAt: new Date() })
-    await db.insert(members).values({ address: "0xhigh", votingPower: 100, joinedAt: new Date() })
-    await db.insert(members).values({ address: "0xmid", votingPower: 50, joinedAt: new Date() })
+    await db.insert(daoMemberships).values([
+      {
+        id: "low",
+        daoId: "dao-a",
+        memberAddress: "0xlow",
+        votingPower: 1,
+        joinedAt: new Date(),
+      },
+      {
+        id: "high",
+        daoId: "dao-a",
+        memberAddress: "0xhigh",
+        votingPower: 100,
+        joinedAt: new Date(),
+      },
+      {
+        id: "mid",
+        daoId: "dao-a",
+        memberAddress: "0xmid",
+        votingPower: 50,
+        joinedAt: new Date(),
+      },
+    ])
 
     const list = await call(governanceRouter.listMembers, undefined, { context: ctx })
     expect(list[0]?.address).toBe("0xhigh")

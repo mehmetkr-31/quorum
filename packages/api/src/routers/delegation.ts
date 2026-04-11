@@ -1,14 +1,14 @@
 import { daoMemberships, delegations } from "@quorum/db"
 import { and, eq } from "drizzle-orm"
 import { z } from "zod"
-import { publicProcedure } from "../index"
+import { assertSessionWallet, protectedProcedure, publicProcedure } from "../index"
 
 const aptosAddress = z.string().regex(/^0x[0-9a-fA-F]{1,64}$/, "Invalid Aptos address format")
 const aptosTxHash = z.string().regex(/^0x[0-9a-fA-F]{64}$/, "Invalid Aptos transaction hash format")
 
 export const delegationRouter = {
   /** Delegate voting power to another DAO member */
-  delegate: publicProcedure
+  delegate: protectedProcedure
     .input(
       z.object({
         daoId: z.string(),
@@ -18,6 +18,8 @@ export const delegationRouter = {
       }),
     )
     .handler(async ({ input, context: ctx }) => {
+      assertSessionWallet(ctx, input.delegatorAddress)
+
       if (input.delegatorAddress === input.delegateeAddress) {
         throw new Error("Cannot delegate to yourself")
       }
@@ -75,7 +77,7 @@ export const delegationRouter = {
     }),
 
   /** Revoke delegation */
-  revoke: publicProcedure
+  revoke: protectedProcedure
     .input(
       z.object({
         daoId: z.string(),
@@ -83,6 +85,8 @@ export const delegationRouter = {
       }),
     )
     .handler(async ({ input, context: ctx }) => {
+      assertSessionWallet(ctx, input.delegatorAddress)
+
       const [existing] = await ctx.db
         .select({ id: delegations.id })
         .from(delegations)

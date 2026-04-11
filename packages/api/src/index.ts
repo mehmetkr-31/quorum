@@ -11,3 +11,17 @@ export const protectedProcedure = o.use(({ context, next }) => {
   }
   return next({ context: { ...context, session: context.session } })
 })
+
+export function assertSessionWallet(
+  context: Context,
+  walletAddress: string,
+  message = "FORBIDDEN",
+) {
+  if (!context.session) {
+    throw new Error("UNAUTHORIZED")
+  }
+
+  if (context.session.walletAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+    throw new Error(message)
+  }
+}

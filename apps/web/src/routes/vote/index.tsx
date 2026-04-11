@@ -1,9 +1,10 @@
-import { Aptos, AptosConfig, type InputEntryFunctionData, Network } from "@aptos-labs/ts-sdk"
+import { Aptos, AptosConfig, type InputEntryFunctionData } from "@aptos-labs/ts-sdk"
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
+import { detectAptosNetwork } from "../../utils/aptos-network"
 import { orpc } from "../../utils/orpc"
 
 export const Route = createFileRoute("/vote/")({
@@ -15,7 +16,7 @@ const NODE_URL = import.meta.env.VITE_APTOS_NODE_URL
 
 const aptos = new Aptos(
   new AptosConfig({
-    network: NODE_URL?.includes("testnet") ? Network.TESTNET : Network.DEVNET,
+    network: detectAptosNetwork(NODE_URL),
     fullnode: NODE_URL,
   }),
 )
@@ -134,61 +135,36 @@ function VotePage() {
     setMyVotes(new Map(myVoteList.map((v) => [v.contributionId, v.decision])))
   }, [voteHistory, addrStr])
 
-  const [isMember, setIsMember] = useState<boolean | null>(null)
   const [isJoining, setIsJoining] = useState(false)
-
-  // Check membership
-  useEffect(() => {
-    async function checkMembership() {
-      if (!account?.address) return
-      try {
-        const resource = await aptos.getAccountResource({
-          accountAddress: account.address.toString(),
-          resourceType: `${CONTRACT_ADDRESS}::dao_governance::Member`,
-        })
-        setIsMember(!!resource)
-      } catch (e: unknown) {
-        const error = e as { status?: number; message?: string }
-        if (error?.status === 404 || error?.message?.includes("Resource not found")) {
-          setIsMember(false)
-        } else {
-          console.error("Failed to check membership", e)
-        }
-      }
-    }
-    checkMembership()
-  }, [account?.address?.toString(), isJoining])
+  const { data: membership } = useQuery({
+    ...orpc.dao.getMembership.queryOptions({
+      input: {
+        daoId: selectedDaoId,
+        memberAddress: account?.address?.toString() ?? "",
+      },
+    }),
+    enabled: !!selectedDaoId && !!account?.address,
+  })
+  const isMember = selectedDaoId ? membership !== null && membership !== undefined : false
 
   async function handleJoinDAO() {
-    if (!connected || !account) return
+    if (!connected || !account || !selectedDaoId) {
+      toast.error("Select a DAO first")
+      return
+    }
     setIsJoining(true)
     try {
-      if (selectedDaoId) {
-        // Join specific DAO on-chain
-        const payload = {
-          function: `${CONTRACT_ADDRESS}::dao_governance::join_dao`,
-          functionArguments: [
-            CONTRACT_ADDRESS,
-            Array.from(new TextEncoder().encode(selectedDaoId)),
-          ],
-        }
-        const result = await signAndSubmitTransaction({ data: payload as InputEntryFunctionData })
-        await aptos.waitForTransaction({ transactionHash: result.hash })
-        await joinDaoMutation.mutateAsync({
-          daoId: selectedDaoId,
-          memberAddress: account.address.toString(),
-        })
-        queryClient.invalidateQueries()
-      } else {
-        // Global register_member (backward compat)
-        const payload = {
-          function: `${CONTRACT_ADDRESS}::dao_governance::register_member`,
-          functionArguments: [],
-        }
-        const result = await signAndSubmitTransaction({ data: payload as InputEntryFunctionData })
-        await aptos.waitForTransaction({ transactionHash: result.hash })
+      const payload = {
+        function: `${CONTRACT_ADDRESS}::dao_governance::join_dao`,
+        functionArguments: [CONTRACT_ADDRESS, Array.from(new TextEncoder().encode(selectedDaoId))],
       }
-      setIsMember(true)
+      const result = await signAndSubmitTransaction({ data: payload as InputEntryFunctionData })
+      await aptos.waitForTransaction({ transactionHash: result.hash })
+      await joinDaoMutation.mutateAsync({
+        daoId: selectedDaoId,
+        memberAddress: account.address.toString(),
+      })
+      queryClient.invalidateQueries()
       toast.success("Successfully joined the DAO!")
     } catch (e: unknown) {
       console.error(e)

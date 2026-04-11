@@ -1,7 +1,7 @@
 import { contributions, daos, datasets } from "@quorum/db"
 import { and, eq, sql } from "drizzle-orm"
 import { z } from "zod"
-import { publicProcedure } from "../index"
+import { assertSessionWallet, protectedProcedure, publicProcedure } from "../index"
 
 // ── HuggingFace Hub helpers ──────────────────────────────────────────────────
 
@@ -93,7 +93,7 @@ async function uploadFileToHf(
 }
 
 export const datasetRouter = {
-  create: publicProcedure
+  create: protectedProcedure
     .input(
       z.object({
         daoId: z.string(),
@@ -103,6 +103,8 @@ export const datasetRouter = {
       }),
     )
     .handler(async ({ input, context: ctx }) => {
+      assertSessionWallet(ctx, input.ownerAddress)
+
       // Verify DAO exists
       const [dao] = await ctx.db
         .select({ id: daos.id })
@@ -209,7 +211,7 @@ export const datasetRouter = {
    *   - README.md — dataset card
    * Requires HUGGINGFACE_TOKEN env var or a user-provided token.
    */
-  pushToHub: publicProcedure
+  pushToHub: protectedProcedure
     .input(
       z.object({
         datasetId: z.string(),

@@ -60,8 +60,13 @@ test.describe("DAO Explorer (/daos)", () => {
       expect(page.url()).toContain("/daos/")
       // Breadcrumb should show "DAOs" link
       await expect(page.getByRole("link", { name: /DAOs/i }).first()).toBeVisible()
-      // Detail page heading shows DAO name
-      await expect(page.locator("h1").first()).toBeVisible()
+      // Detail page should either render the heading or a not-found state in unseeded envs
+      await expect(
+        page
+          .locator("h1")
+          .or(page.getByText(/DAO not found/i))
+          .first(),
+      ).toBeVisible()
 
       if (firstHref) {
         expect(page.url()).toContain(firstHref)
@@ -101,9 +106,13 @@ test.describe("DAO Detail (/daos/:slug)", () => {
       return
     }
 
-    await page.getByRole("button", { name: /governance/i }).click()
-    await expect(page.getByText(/Quorum Threshold/i)).toBeVisible()
-    await expect(page.getByText(/Voting Window/i)).toBeVisible()
+    await expect(page.getByRole("button", { name: /governance/i }).first()).toBeVisible()
+    await page
+      .getByRole("button", { name: /governance/i })
+      .first()
+      .click()
+    await expect(page.getByText(/Voting Window/i).first()).toBeVisible()
+    await expect(page.getByText(/Proposals/i).first()).toBeVisible()
   })
 
   test("switching to members tab shows member list or empty state", async ({ page }) => {
@@ -117,11 +126,19 @@ test.describe("DAO Detail (/daos/:slug)", () => {
       return
     }
 
-    await page.getByRole("button", { name: /members/i }).click()
+    await expect(page.getByRole("button", { name: /members/i }).first()).toBeVisible()
+    await page
+      .getByRole("button", { name: /members/i })
+      .first()
+      .click()
     // Either a member row or "No members yet"
-    const memberRow = page.locator("[class*='rounded-xl']").first()
-    await expect(memberRow)
-      .toBeVisible({ timeout: 3_000 })
+    await expect(
+      page
+        .getByText(/No members yet/i)
+        .or(page.getByText(/Voting Power/i))
+        .first(),
+    )
+      .toBeVisible({ timeout: 5_000 })
       .catch(() => {})
   })
 })

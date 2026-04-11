@@ -1,7 +1,7 @@
 import { stakes } from "@quorum/db"
 import { eq } from "drizzle-orm"
 import { z } from "zod"
-import { publicProcedure } from "../index"
+import { assertSessionWallet, protectedProcedure, publicProcedure } from "../index"
 
 const aptosAddress = z.string().regex(/^0x[0-9a-fA-F]{1,64}$/, "Invalid Aptos address format")
 const aptosTxHash = z.string().regex(/^0x[0-9a-fA-F]{64}$/, "Invalid Aptos transaction hash format")
@@ -11,7 +11,7 @@ const MIN_STAKE = 1_000_000_000 // 10 QRM
 
 export const stakingRouter = {
   /** Record a new stake (off-chain mirror of on-chain stake event) */
-  stake: publicProcedure
+  stake: protectedProcedure
     .input(
       z.object({
         stakerAddress: aptosAddress,
@@ -22,6 +22,8 @@ export const stakingRouter = {
       }),
     )
     .handler(async ({ input, context: ctx }) => {
+      assertSessionWallet(ctx, input.stakerAddress)
+
       const BOOST_MAP = [150, 200, 300] // bps per tier
       const LOCKUP_DAYS = [30, 90, 180]
 
@@ -68,9 +70,11 @@ export const stakingRouter = {
     }),
 
   /** Remove stake record (after on-chain unstake) */
-  unstake: publicProcedure
+  unstake: protectedProcedure
     .input(z.object({ stakerAddress: aptosAddress }))
     .handler(async ({ input, context: ctx }) => {
+      assertSessionWallet(ctx, input.stakerAddress)
+
       await ctx.db.delete(stakes).where(eq(stakes.stakerAddress, input.stakerAddress))
       return { removed: true }
     }),

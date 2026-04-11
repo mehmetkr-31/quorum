@@ -143,6 +143,7 @@ describe("daoRouter", () => {
     )
 
     const newMember = "0x" + "c".repeat(64)
+    ctx.session!.walletAddress = newMember
     const result = await call(
       daoRouter.join,
       { daoId: id, memberAddress: newMember },
@@ -167,14 +168,12 @@ describe("daoRouter", () => {
       { context: ctx },
     )
 
-    await call(
-      daoRouter.join,
-      { daoId: id, memberAddress: "0x" + "c".repeat(64) },
-      { context: ctx },
-    )
+    const newMember = "0x" + "c".repeat(64)
+    ctx.session!.walletAddress = newMember
+    await call(daoRouter.join, { daoId: id, memberAddress: newMember }, { context: ctx })
     const second = await call(
       daoRouter.join,
-      { daoId: id, memberAddress: "0x" + "c".repeat(64) },
+      { daoId: id, memberAddress: newMember },
       { context: ctx },
     )
     expect(second.alreadyMember).toBe(true)
@@ -222,11 +221,13 @@ describe("daoRouter", () => {
       { context: ctx },
     )
 
+    ctx.session!.walletAddress = "0x" + "e".repeat(64)
     await call(
       daoRouter.join,
       { daoId: id, memberAddress: "0x" + "e".repeat(64) },
       { context: ctx },
     )
+    ctx.session!.walletAddress = "0x" + "f".repeat(64)
     await call(
       daoRouter.join,
       { daoId: id, memberAddress: "0x" + "f".repeat(64) },
@@ -247,6 +248,7 @@ describe("daoRouter", () => {
       { name: "Stats DAO", ownerAddress: OWNER, treasuryAddress: TREASURY },
       { context: ctx },
     )
+    ctx.session!.walletAddress = "0x" + "9".repeat(64)
     await call(
       daoRouter.join,
       { daoId: id, memberAddress: "0x" + "9".repeat(64) },

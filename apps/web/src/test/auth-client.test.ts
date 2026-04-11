@@ -76,7 +76,10 @@ describe("walletSignIn", () => {
       .mockResolvedValueOnce({ ok: true })
     const { walletSignIn } = await import("@/utils/auth-client")
 
-    const signMessage = vi.fn().mockResolvedValue({ signature: "0xsig" })
+    const signMessage = vi.fn().mockResolvedValue({
+      signature: "0xsig",
+      fullMessage: "signed message abc123",
+    })
     const result = await walletSignIn({
       address: "0xaddr",
       publicKey: "0xpubkey",
@@ -89,6 +92,12 @@ describe("walletSignIn", () => {
     const [nonceCall, verifyCall] = mockFetch.mock.calls
     expect(nonceCall[0]).toBe("/api/auth/wallet/nonce")
     expect(verifyCall[0]).toBe("/api/auth/wallet/verify")
+    expect(JSON.parse(String(verifyCall[1]?.body))).toMatchObject({
+      address: "0xaddr",
+      publicKey: "0xpubkey",
+      signature: "0xsig",
+      message: "signed message abc123",
+    })
 
     // signMessage doğru argümanlarla çağrıldı mı
     expect(signMessage).toHaveBeenCalledWith({
@@ -110,9 +119,38 @@ describe("walletSignIn", () => {
     const result = await walletSignIn({
       address: "0xaddr",
       publicKey: "0xpubkey",
-      signMessage: vi.fn().mockResolvedValue({ signature: "hex-sig-string" }),
+      signMessage: vi.fn().mockResolvedValue({
+        signature: {
+          toString: () => "0xobjectsig",
+        },
+      }),
     })
     expect(result).toBe(true)
+  })
+
+  it("public key ve signature uint8array formatında da serialize eder", async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ nonce: "bytes" }),
+      })
+      .mockResolvedValueOnce({ ok: true })
+    const { walletSignIn } = await import("@/utils/auth-client")
+
+    const result = await walletSignIn({
+      address: "0xaddr",
+      publicKey: Uint8Array.from([0xab, 0xcd]),
+      signMessage: vi.fn().mockResolvedValue({
+        signature: Uint8Array.from([0x12, 0x34]),
+      }),
+    })
+
+    expect(result).toBe(true)
+    const [, verifyCall] = mockFetch.mock.calls
+    expect(JSON.parse(String(verifyCall[1]?.body))).toMatchObject({
+      publicKey: "0xabcd",
+      signature: "0x1234",
+    })
   })
 })
 

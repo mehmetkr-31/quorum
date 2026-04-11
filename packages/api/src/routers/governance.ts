@@ -1,16 +1,64 @@
-import { contributions, daoMemberships, members, receipts } from "@quorum/db"
+import { contributions, daoMemberships, receipts } from "@quorum/db"
 import { count, desc, eq, sum } from "drizzle-orm"
 import { z } from "zod"
 import { publicProcedure } from "../index"
 
+type AggregatedMember = {
+  address: string
+  votingPower: number
+  approvedContributions: number
+  totalContributions: number
+  joinedAt: Date
+}
+
+async function listAggregatedMembers(ctx: { db: any }): Promise<AggregatedMember[]> {
+  const rows = await ctx.db
+    .select({
+      memberAddress: daoMemberships.memberAddress,
+      votingPower: daoMemberships.votingPower,
+      approvedContributions: daoMemberships.approvedContributions,
+      totalContributions: daoMemberships.totalContributions,
+      joinedAt: daoMemberships.joinedAt,
+    })
+    .from(daoMemberships)
+    .orderBy(desc(daoMemberships.votingPower), desc(daoMemberships.approvedContributions))
+
+  const merged = new Map<string, AggregatedMember>()
+
+  for (const row of rows) {
+    const existing = merged.get(row.memberAddress)
+    if (!existing) {
+      merged.set(row.memberAddress, {
+        address: row.memberAddress,
+        votingPower: row.votingPower,
+        approvedContributions: row.approvedContributions,
+        totalContributions: row.totalContributions,
+        joinedAt: row.joinedAt,
+      })
+      continue
+    }
+
+    existing.votingPower = Math.max(existing.votingPower, row.votingPower)
+    existing.approvedContributions += row.approvedContributions
+    existing.totalContributions += row.totalContributions
+    if (row.joinedAt < existing.joinedAt) existing.joinedAt = row.joinedAt
+  }
+
+  return Array.from(merged.values()).sort(
+    (a, b) => b.votingPower - a.votingPower || b.approvedContributions - a.approvedContributions,
+  )
+}
+
 export const governanceRouter = {
-  /** Global stats across all DAOs (backward compatible) */
+  /** Global stats across all DAOs, derived from DAO memberships */
   getStats: publicProcedure.handler(async ({ context: ctx }) => {
     const rows = await ctx.db.select({ value: count() }).from(contributions)
     const totalContribs = rows[0]?.value ?? 0
 
-    const rowsMembers = await ctx.db.select({ value: count() }).from(members)
-    const totalMembers = rowsMembers[0]?.value ?? 0
+    const membershipRows = await ctx.db
+      .select({ memberAddress: daoMemberships.memberAddress })
+      .from(daoMemberships)
+    const totalMembers = new Set(membershipRows.map((row) => row.memberAddress)).size
 
     const rowsRev = await ctx.db.select({ value: sum(receipts.amount) }).from(receipts)
     const totalRev = rowsRev[0]?.value ?? "0"
@@ -22,28 +70,19 @@ export const governanceRouter = {
     }
   }),
 
-  /** Global member list (backward compatible) */
+  /** Global member list aggregated from DAO memberships */
   listMembers: publicProcedure.handler(async ({ context: ctx }) => {
-    return ctx.db.select().from(members).orderBy(desc(members.votingPower))
+    return listAggregatedMembers(ctx)
   }),
 
-  /** Global leaderboard (backward compatible) */
+  /** Global leaderboard aggregated from DAO memberships */
   getLeaderboard: publicProcedure
     .input(z.object({ limit: z.number().default(10).optional() }).optional())
     .handler(async ({ input, context: ctx }) => {
-      const rows = await ctx.db
-        .select({
-          address: members.address,
-          votingPower: members.votingPower,
-          approvedContributions: members.approvedContributions,
-          totalContributions: members.totalContributions,
-          joinedAt: members.joinedAt,
-        })
-        .from(members)
-        .orderBy(desc(members.votingPower), desc(members.approvedContributions))
-        .limit(input?.limit ?? 10)
+      const rows = await listAggregatedMembers(ctx)
+      const limited = rows.slice(0, input?.limit ?? 10)
 
-      return rows.map((m) => ({
+      return limited.map((m) => ({
         ...m,
         accuracy:
           m.totalContributions > 0

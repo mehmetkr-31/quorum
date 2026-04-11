@@ -97,36 +97,47 @@ function GovernancePage() {
             </div>
           ) : (
             <div className="divide-y divide-outline-variant/5">
-              {leaderboard?.map((m, i) => (
-                <div
-                  key={m.address}
-                  className="grid grid-cols-12 px-8 py-5 text-sm items-center hover:bg-primary/5 transition-colors gap-2 cursor-default"
-                >
-                  <span className="col-span-1 text-outline font-bold text-xs">{i + 1}</span>
-                  <span className="col-span-5 font-mono text-primary text-xs">
-                    {m.address.slice(0, 10)}...{m.address.slice(-4)}
-                  </span>
-                  <span className="col-span-2 text-center font-bold text-on-surface">
-                    {m.votingPower}
-                  </span>
-                  <span className="col-span-2 text-center text-tertiary text-xs">
-                    {m.approvedContributions}/{m.totalContributions}
-                  </span>
-                  <span className="col-span-2 text-right">
-                    <span
-                      className={`text-xs font-bold px-3 py-1 rounded-full ${
-                        m.accuracy >= 70
-                          ? "bg-tertiary/10 text-tertiary border border-tertiary/20"
-                          : m.accuracy >= 40
-                            ? "bg-secondary/10 text-secondary border border-secondary/20"
-                            : "bg-surface-container text-on-surface-variant border border-outline-variant/20"
-                      }`}
-                    >
-                      {m.accuracy}%
+              {leaderboard?.map(
+                (
+                  m: {
+                    address: string
+                    votingPower: number
+                    approvedContributions: number
+                    totalContributions: number
+                    accuracy: number
+                  },
+                  i: number,
+                ) => (
+                  <div
+                    key={m.address}
+                    className="grid grid-cols-12 px-8 py-5 text-sm items-center hover:bg-primary/5 transition-colors gap-2 cursor-default"
+                  >
+                    <span className="col-span-1 text-outline font-bold text-xs">{i + 1}</span>
+                    <span className="col-span-5 font-mono text-primary text-xs">
+                      {m.address.slice(0, 10)}...{m.address.slice(-4)}
                     </span>
-                  </span>
-                </div>
-              ))}
+                    <span className="col-span-2 text-center font-bold text-on-surface">
+                      {m.votingPower}
+                    </span>
+                    <span className="col-span-2 text-center text-tertiary text-xs">
+                      {m.approvedContributions}/{m.totalContributions}
+                    </span>
+                    <span className="col-span-2 text-right">
+                      <span
+                        className={`text-xs font-bold px-3 py-1 rounded-full ${
+                          m.accuracy >= 70
+                            ? "bg-tertiary/10 text-tertiary border border-tertiary/20"
+                            : m.accuracy >= 40
+                              ? "bg-secondary/10 text-secondary border border-secondary/20"
+                              : "bg-surface-container text-on-surface-variant border border-outline-variant/20"
+                        }`}
+                      >
+                        {m.accuracy}%
+                      </span>
+                    </span>
+                  </div>
+                ),
+              )}
             </div>
           )}
         </div>

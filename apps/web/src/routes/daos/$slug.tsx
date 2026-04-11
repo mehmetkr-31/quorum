@@ -1,8 +1,14 @@
+import { Aptos, AptosConfig, type InputEntryFunctionData } from "@aptos-labs/ts-sdk"
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
+import {
+  encodeParameterChangePayload,
+  normalizeParameterChangePayload,
+} from "@quorum/aptos/helpers"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState } from "react"
 import { toast } from "sonner"
+import { detectAptosNetwork } from "../../utils/aptos-network"
 import { orpc } from "../../utils/orpc"
 
 export const Route = createFileRoute("/daos/$slug")({
@@ -12,10 +18,20 @@ export const Route = createFileRoute("/daos/$slug")({
   }),
 })
 
+const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS
+const NODE_URL = import.meta.env.VITE_APTOS_NODE_URL
+
+const aptos = new Aptos(
+  new AptosConfig({
+    network: detectAptosNetwork(NODE_URL),
+    fullnode: NODE_URL,
+  }),
+)
+
 function DaoDetailPage() {
   const { slug } = Route.useParams()
   const { onboarding } = Route.useSearch()
-  const { connected, account } = useWallet()
+  const { connected, account, signAndSubmitTransaction } = useWallet()
   const queryClient = useQueryClient()
   const [showOnboarding, setShowOnboarding] = useState(!!onboarding)
 
@@ -84,6 +100,14 @@ function DaoDetailPage() {
   const handleJoin = async () => {
     if (!dao || !account) return
     try {
+      const tx = await signAndSubmitTransaction({
+        data: {
+          function: `${CONTRACT_ADDRESS}::dao_governance::join_dao`,
+          functionArguments: [CONTRACT_ADDRESS, Array.from(new TextEncoder().encode(dao.id))],
+        } as InputEntryFunctionData,
+      })
+      await aptos.waitForTransaction({ transactionHash: tx.hash })
+
       await joinMutation.mutateAsync({
         daoId: dao.id,
         memberAddress: account.address.toString(),
@@ -133,20 +157,45 @@ function DaoDetailPage() {
       return
     }
 
-    const payload: Record<string, unknown> = {}
+    let payload: Record<string, unknown> = {}
+    let onChainPayload: number[] = []
     if (proposalType === 0) {
-      if (newQuorumThreshold) payload.quorumThreshold = Number(newQuorumThreshold)
-      if (newVotingWindowH) payload.votingWindowSeconds = Number(newVotingWindowH) * 3600
+      payload = normalizeParameterChangePayload({
+        quorumThreshold: Number(newQuorumThreshold || dao.quorumThreshold),
+        votingWindowSeconds: Number(newVotingWindowH || dao.votingWindowSeconds / 3600) * 3600,
+      }) as Record<string, unknown>
+      onChainPayload = encodeParameterChangePayload(payload)
+    } else {
+      onChainPayload = Array.from(new TextEncoder().encode(JSON.stringify(payload)))
     }
 
     try {
+      const proposalId = crypto.randomUUID()
+      const tx = await signAndSubmitTransaction({
+        data: {
+          function: `${CONTRACT_ADDRESS}::dao_governance::create_proposal`,
+          functionArguments: [
+            CONTRACT_ADDRESS,
+            Array.from(new TextEncoder().encode(dao.id)),
+            Array.from(new TextEncoder().encode(proposalId)),
+            proposalType,
+            Array.from(new TextEncoder().encode(proposalTitle.trim())),
+            Array.from(new TextEncoder().encode(proposalDescription.trim())),
+            onChainPayload,
+          ],
+        } as InputEntryFunctionData,
+      })
+      await aptos.waitForTransaction({ transactionHash: tx.hash })
+
       await createProposalMutation.mutateAsync({
+        id: proposalId,
         daoId: dao.id,
         proposerAddress: account.address.toString(),
         proposalType,
         title: proposalTitle.trim(),
         description: proposalDescription.trim(),
         payload,
+        aptosTxHash: tx.hash,
       })
       toast.success("Proposal created!")
       setProposalTitle("")
@@ -165,14 +214,24 @@ function DaoDetailPage() {
       toast.error("Connect wallet to vote")
       return
     }
-    // In production: sign & submit on-chain first, get tx hash, then call API
-    const mockTxHash = "0x" + "0".repeat(64)
     try {
+      const tx = await signAndSubmitTransaction({
+        data: {
+          function: `${CONTRACT_ADDRESS}::dao_governance::vote_on_proposal`,
+          functionArguments: [
+            CONTRACT_ADDRESS,
+            Array.from(new TextEncoder().encode(proposalId)),
+            support,
+          ],
+        } as InputEntryFunctionData,
+      })
+      await aptos.waitForTransaction({ transactionHash: tx.hash })
+
       await voteProposalMutation.mutateAsync({
         proposalId,
         voterAddress: account.address.toString(),
         support,
-        aptosTxHash: mockTxHash,
+        aptosTxHash: tx.hash,
       })
       toast.success(support ? "Voted: For" : "Voted: Against")
       queryClient.invalidateQueries({

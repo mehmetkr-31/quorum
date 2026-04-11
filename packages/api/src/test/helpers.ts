@@ -148,7 +148,7 @@ export function createMockContext(db: ReturnType<typeof createTestDb>["db"]): Co
     session: {
       id: "test-session",
       userId: "test-user",
-      walletAddress: "0xtest",
+      walletAddress: "0x" + "a".repeat(64),
     },
   }
 }

@@ -1,9 +1,10 @@
-import { Aptos, AptosConfig, type InputEntryFunctionData, Network } from "@aptos-labs/ts-sdk"
+import { Aptos, AptosConfig, type InputEntryFunctionData } from "@aptos-labs/ts-sdk"
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
+import { detectAptosNetwork } from "../../utils/aptos-network"
 import { orpc } from "../../utils/orpc"
 
 export const Route = createFileRoute("/contribute/")({
@@ -15,10 +16,17 @@ const NODE_URL = import.meta.env.VITE_APTOS_NODE_URL
 
 const aptos = new Aptos(
   new AptosConfig({
-    network: NODE_URL?.includes("testnet") ? Network.TESTNET : Network.DEVNET,
+    network: detectAptosNetwork(NODE_URL),
     fullnode: NODE_URL,
   }),
 )
+
+function hexToBytes(hex: string) {
+  const normalized = hex.startsWith("0x") ? hex.slice(2) : hex
+  return Array.from(
+    new Uint8Array((normalized.match(/.{1,2}/g) ?? []).map((byte) => parseInt(byte, 16))),
+  )
+}
 
 function ContributePage() {
   const { connected, account, signAndSubmitTransaction } = useWallet()
@@ -36,7 +44,6 @@ function ContributePage() {
   const [selectedProtocol, setSelectedProtocol] = useState<
     "text" | "image" | "audio" | "structured"
   >("image")
-  const [isMember, setIsMember] = useState<boolean | null>(null)
   const [isJoining, setIsJoining] = useState(false)
 
   // Fetch DAOs list
@@ -48,6 +55,16 @@ function ContributePage() {
       input: selectedDaoId ? { daoId: selectedDaoId } : undefined,
     }),
   })
+  const { data: membership } = useQuery({
+    ...orpc.dao.getMembership.queryOptions({
+      input: {
+        daoId: selectedDaoId,
+        memberAddress: account?.address?.toString() ?? "",
+      },
+    }),
+    enabled: !!selectedDaoId && !!account?.address,
+  })
+  const isMember = selectedDaoId ? membership !== null && membership !== undefined : null
 
   // When DAO changes, reset dataset selection
   useEffect(() => {
@@ -94,32 +111,6 @@ function ContributePage() {
     }
   }
 
-  // Check if the connected wallet is a member of the selected DAO
-  useEffect(() => {
-    async function checkMembership() {
-      if (!account?.address) {
-        setIsMember(null)
-        return
-      }
-      try {
-        // Check on-chain global Member resource
-        const resource = await aptos.getAccountResource({
-          accountAddress: account.address.toString(),
-          resourceType: `${CONTRACT_ADDRESS}::dao_governance::Member`,
-        })
-        setIsMember(!!resource)
-      } catch (e: unknown) {
-        const error = e as { status?: number; message?: string }
-        if (error?.status === 404 || error?.message?.includes("Resource not found")) {
-          setIsMember(false)
-        } else {
-          console.error("Failed to check membership", e)
-        }
-      }
-    }
-    checkMembership()
-  }, [account?.address?.toString(), isJoining])
-
   async function handleJoinDAO() {
     if (!connected || !account) return
     if (!selectedDaoId) {
@@ -143,8 +134,6 @@ function ContributePage() {
         daoId: selectedDaoId,
         memberAddress: account.address.toString(),
       })
-
-      setIsMember(true)
       toast.success("Successfully joined the DAO!")
       queryClient.invalidateQueries({
         queryKey: orpc.dao.getMembership.queryOptions({
@@ -194,9 +183,7 @@ function ContributePage() {
           Array.from(new TextEncoder().encode(selectedDatasetId)),
           Array.from(new TextEncoder().encode(res.shelbyAccount)),
           Array.from(new TextEncoder().encode(res.shelbyBlobName)),
-          Array.from(
-            new Uint8Array((res.dataHash.match(/.{1,2}/g) ?? []).map((byte) => parseInt(byte, 16))),
-          ),
+          hexToBytes(res.dataHash),
         ],
       }
 

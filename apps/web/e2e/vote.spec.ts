@@ -13,17 +13,16 @@ test.describe("Vote page — unauthenticated", () => {
   })
 
   test("renders NEURAL REVIEW heading", async ({ page }) => {
-    await expect(page.getByText(/REVIEW/i)).toBeVisible()
+    await expect(page.getByRole("heading", { name: /NEURAL REVIEW/i })).toBeVisible()
   })
 
   test("shows pending task count badge", async ({ page }) => {
     await expect(page.getByText(/PENDING_TASKS/i)).toBeVisible()
   })
 
-  test("shows JOIN_DAO button when not connected", async ({ page }) => {
-    // Without a wallet, JOIN_DAO button should appear
+  test("hides JOIN_DAO button when not connected", async ({ page }) => {
     const joinBtn = page.getByRole("button", { name: /JOIN_DAO/i })
-    await expect(joinBtn).toBeVisible()
+    await expect(joinBtn).toHaveCount(0)
   })
 
   test("DAO filter dropdown is visible in sidebar", async ({ page }) => {
@@ -37,22 +36,25 @@ test.describe("Vote page — unauthenticated", () => {
   test("sidebar nav links are present", async ({ page }) => {
     await expect(page.getByRole("link", { name: /Dashboard/i })).toBeVisible()
     await expect(page.getByRole("link", { name: /Data Archives/i })).toBeVisible()
-    await expect(page.getByRole("link", { name: /Governance/i })).toBeVisible()
+    await expect(page.getByRole("link", { name: /^Governance$/i }).first()).toBeVisible()
   })
 
   test("SUBMIT_PROPOSAL button shows coming-soon toast", async ({ page }) => {
     const btn = page.getByRole("button", { name: /SUBMIT_PROPOSAL/i })
     await btn.click()
-    await expect(page.locator("[data-sonner-toast]")).toBeVisible({ timeout: 4_000 })
+    await expect(page.getByText(/Proposal submission coming soon/i)).toBeVisible({ timeout: 4_000 })
   })
 
   test("empty queue shows no-pending message when no contributions", async ({ page }) => {
-    // Check if queue is empty — either "No contributions pending" or cards
     const emptyMsg = page.getByText(/No contributions pending review/i)
-    const cards = page.locator(".glass-card").filter({ hasText: /approve|reject|improve/i })
-    const cardCount = await cards.count()
+    const actionButtons = page.getByRole("button").filter({ hasText: /APPROVE|REJECT|IMPROVE/i })
+    const actionCount = await actionButtons.count()
+    const contributionCards = page.getByText(/CNTRB_/i)
+    const finalizeButtons = page.getByRole("button", { name: /FINALIZE_RECORDS/i })
+    const cardCount = await contributionCards.count()
+    const finalizeCount = await finalizeButtons.count()
 
-    if (cardCount === 0) {
+    if (actionCount === 0 && cardCount === 0 && finalizeCount === 0) {
       await expect(emptyMsg).toBeVisible()
     }
   })

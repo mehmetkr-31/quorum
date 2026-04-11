@@ -1,9 +1,10 @@
-import { Aptos, AptosConfig, type InputEntryFunctionData, Network } from "@aptos-labs/ts-sdk"
+import { Aptos, AptosConfig, type InputEntryFunctionData } from "@aptos-labs/ts-sdk"
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import { toast } from "sonner"
+import { detectAptosNetwork } from "../../utils/aptos-network"
 import { orpc } from "../../utils/orpc"
 
 export const Route = createFileRoute("/staking/")({
@@ -15,7 +16,7 @@ const NODE_URL = import.meta.env.VITE_APTOS_NODE_URL
 
 const aptos = new Aptos(
   new AptosConfig({
-    network: NODE_URL?.includes("testnet") ? Network.TESTNET : Network.DEVNET,
+    network: detectAptosNetwork(NODE_URL),
     fullnode: NODE_URL,
   }),
 )

@@ -65,6 +65,7 @@ describe("proposalRouter", () => {
   })
 
   it("create: proposal oluşturur", async () => {
+    ctx.session!.walletAddress = OWNER
     const result = await call(
       proposalRouter.create,
       {
@@ -83,6 +84,7 @@ describe("proposalRouter", () => {
   })
 
   it("create: DAO üyesi olmayanlar proposal oluşturamaz", async () => {
+    ctx.session!.walletAddress = "0x" + "d".repeat(64)
     await expect(
       call(
         proposalRouter.create,
@@ -97,11 +99,13 @@ describe("proposalRouter", () => {
   })
 
   it("list: DAO için proposal'ları listeler", async () => {
+    ctx.session!.walletAddress = OWNER
     await call(
       proposalRouter.create,
       { daoId: DAO_ID, proposerAddress: OWNER, title: "Proposal One" },
       { context: ctx },
     )
+    ctx.session!.walletAddress = MEMBER1
     await call(
       proposalRouter.create,
       { daoId: DAO_ID, proposerAddress: MEMBER1, title: "Proposal Two" },
@@ -113,12 +117,14 @@ describe("proposalRouter", () => {
   })
 
   it("vote: proposal'a oy verir", async () => {
+    ctx.session!.walletAddress = OWNER
     const { id } = await call(
       proposalRouter.create,
       { daoId: DAO_ID, proposerAddress: OWNER, title: "Votable Proposal" },
       { context: ctx },
     )
 
+    ctx.session!.walletAddress = MEMBER1
     const voteResult = await call(
       proposalRouter.vote,
       { proposalId: id, voterAddress: MEMBER1, support: true, aptosTxHash: TX },
@@ -132,31 +138,34 @@ describe("proposalRouter", () => {
     expect(p?.totalPower).toBe(5)
   })
 
-  it("vote: aynı adres iki kez oy veremez", async () => {
+  it("vote: aynı adres ikinci istekte mevcut oyu idempotent döner", async () => {
+    ctx.session!.walletAddress = OWNER
     const { id } = await call(
       proposalRouter.create,
       { daoId: DAO_ID, proposerAddress: OWNER, title: "Double Vote Test" },
       { context: ctx },
     )
 
+    ctx.session!.walletAddress = MEMBER1
     await call(
       proposalRouter.vote,
       { proposalId: id, voterAddress: MEMBER1, support: true, aptosTxHash: TX },
       { context: ctx },
     )
 
-    await expect(
-      call(
-        proposalRouter.vote,
-        { proposalId: id, voterAddress: MEMBER1, support: false, aptosTxHash: TX },
-        { context: ctx },
-      ),
-    ).rejects.toThrow("Already voted")
+    const repeatVote = await call(
+      proposalRouter.vote,
+      { proposalId: id, voterAddress: MEMBER1, support: false, aptosTxHash: TX },
+      { context: ctx },
+    )
+    expect(repeatVote.id).toBeTruthy()
+    expect(repeatVote.votingPower).toBe(5)
   })
 
   it("finalize: quorum geçince passed olur", async () => {
     // Create with far future deadline so votes go through
     const futureDeadline = new Date(Date.now() + 1_000_000)
+    ctx.session!.walletAddress = OWNER
     const { id } = await call(
       proposalRouter.create,
       {
@@ -174,11 +183,13 @@ describe("proposalRouter", () => {
       { proposalId: id, voterAddress: OWNER, support: true, aptosTxHash: TX },
       { context: ctx },
     )
+    ctx.session!.walletAddress = MEMBER1
     await call(
       proposalRouter.vote,
       { proposalId: id, voterAddress: MEMBER1, support: true, aptosTxHash: "0x" + "2".repeat(64) },
       { context: ctx },
     )
+    ctx.session!.walletAddress = MEMBER2
     await call(
       proposalRouter.vote,
       { proposalId: id, voterAddress: MEMBER2, support: false, aptosTxHash: "0x" + "3".repeat(64) },
@@ -198,6 +209,7 @@ describe("proposalRouter", () => {
 
   it("finalize: quorum geçmeyince rejected olur", async () => {
     const futureDeadline = new Date(Date.now() + 1_000_000)
+    ctx.session!.walletAddress = OWNER
     const { id } = await call(
       proposalRouter.create,
       {
@@ -210,11 +222,13 @@ describe("proposalRouter", () => {
     )
 
     // Vote: only 3 yes out of 13 (23% < 60%)
+    ctx.session!.walletAddress = MEMBER2
     await call(
       proposalRouter.vote,
       { proposalId: id, voterAddress: MEMBER2, support: true, aptosTxHash: TX },
       { context: ctx },
     )
+    ctx.session!.walletAddress = OWNER
     await call(
       proposalRouter.vote,
       { proposalId: id, voterAddress: OWNER, support: false, aptosTxHash: "0x" + "2".repeat(64) },
@@ -233,6 +247,7 @@ describe("proposalRouter", () => {
   })
 
   it("hasVoted: oy verdikten sonra true döner", async () => {
+    ctx.session!.walletAddress = OWNER
     const { id } = await call(
       proposalRouter.create,
       { daoId: DAO_ID, proposerAddress: OWNER, title: "Check Vote" },
@@ -246,6 +261,7 @@ describe("proposalRouter", () => {
     )
     expect(before).toBeNull()
 
+    ctx.session!.walletAddress = MEMBER1
     await call(
       proposalRouter.vote,
       { proposalId: id, voterAddress: MEMBER1, support: true, aptosTxHash: TX },
@@ -262,11 +278,13 @@ describe("proposalRouter", () => {
   })
 
   it("getStats: proposal istatistiklerini döner", async () => {
+    ctx.session!.walletAddress = OWNER
     await call(
       proposalRouter.create,
       { daoId: DAO_ID, proposerAddress: OWNER, title: "Proposal One" },
       { context: ctx },
     )
+    ctx.session!.walletAddress = MEMBER1
     await call(
       proposalRouter.create,
       { daoId: DAO_ID, proposerAddress: MEMBER1, title: "Proposal Two" },
@@ -296,6 +314,7 @@ describe("stakingRouter", () => {
   })
 
   it("stake: stake kaydeder ve boost döner", async () => {
+    ctx.session!.walletAddress = STAKER
     const result = await call(
       stakingRouter.stake,
       { stakerAddress: STAKER, amount: 100_0_000_000, tier: 1, aptosTxHash: STAKE_TX },
@@ -306,6 +325,7 @@ describe("stakingRouter", () => {
   })
 
   it("getStake: stake bilgisini döner", async () => {
+    ctx.session!.walletAddress = STAKER
     await call(
       stakingRouter.stake,
       { stakerAddress: STAKER, amount: 100_0_000_000, tier: 0, aptosTxHash: STAKE_TX },
@@ -326,6 +346,7 @@ describe("stakingRouter", () => {
   })
 
   it("getBoost: stake varsa doğru multiplier döner", async () => {
+    ctx.session!.walletAddress = STAKER
     await call(
       stakingRouter.stake,
       { stakerAddress: STAKER, amount: 100_0_000_000, tier: 2, aptosTxHash: STAKE_TX },
@@ -337,6 +358,7 @@ describe("stakingRouter", () => {
   })
 
   it("unstake: stake kaydını siler", async () => {
+    ctx.session!.walletAddress = STAKER
     await call(
       stakingRouter.stake,
       { stakerAddress: STAKER, amount: 100_0_000_000, tier: 0, aptosTxHash: STAKE_TX },
@@ -390,6 +412,7 @@ describe("delegationRouter", () => {
   })
 
   it("delegate: oy gücünü delege eder", async () => {
+    ctx.session!.walletAddress = MEMBER1
     const result = await call(
       delegationRouter.delegate,
       { daoId: DAO_ID, delegatorAddress: MEMBER1, delegateeAddress: OWNER, aptosTxHash: TX },
@@ -400,6 +423,7 @@ describe("delegationRouter", () => {
   })
 
   it("delegate: kendine delege edilemez", async () => {
+    ctx.session!.walletAddress = OWNER
     await expect(
       call(
         delegationRouter.delegate,
@@ -410,6 +434,7 @@ describe("delegationRouter", () => {
   })
 
   it("get: aktif delegasyonu döner", async () => {
+    ctx.session!.walletAddress = MEMBER1
     await call(
       delegationRouter.delegate,
       { daoId: DAO_ID, delegatorAddress: MEMBER1, delegateeAddress: OWNER, aptosTxHash: TX },
@@ -426,6 +451,7 @@ describe("delegationRouter", () => {
   })
 
   it("revoke: delegasyonu iptal eder", async () => {
+    ctx.session!.walletAddress = MEMBER1
     await call(
       delegationRouter.delegate,
       { daoId: DAO_ID, delegatorAddress: MEMBER1, delegateeAddress: OWNER, aptosTxHash: TX },
@@ -446,6 +472,7 @@ describe("delegationRouter", () => {
   })
 
   it("listDelegators: delegatee'nin delegatörlerini listeler", async () => {
+    ctx.session!.walletAddress = MEMBER1
     await call(
       delegationRouter.delegate,
       { daoId: DAO_ID, delegatorAddress: MEMBER1, delegateeAddress: OWNER, aptosTxHash: TX },

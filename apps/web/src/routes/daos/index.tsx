@@ -1,16 +1,28 @@
+import { Aptos, AptosConfig, type InputEntryFunctionData } from "@aptos-labs/ts-sdk"
 import { useWallet } from "@aptos-labs/wallet-adapter-react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { toast } from "sonner"
+import { detectAptosNetwork } from "../../utils/aptos-network"
 import { orpc } from "../../utils/orpc"
 
 export const Route = createFileRoute("/daos/")({
   component: DaosPage,
 })
 
+const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS
+const NODE_URL = import.meta.env.VITE_APTOS_NODE_URL
+
+const aptos = new Aptos(
+  new AptosConfig({
+    network: detectAptosNetwork(NODE_URL),
+    fullnode: NODE_URL,
+  }),
+)
+
 function DaosPage() {
-  const { connected, account } = useWallet()
+  const { connected, account, signAndSubmitTransaction } = useWallet()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { data: daos, isLoading } = useQuery(orpc.dao.list.queryOptions())
@@ -40,9 +52,34 @@ function DaosPage() {
       return
     }
     try {
+      const daoId = crypto.randomUUID()
+      const daoSlug =
+        slug.trim() ||
+        name
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "")
+
+      const tx = await signAndSubmitTransaction({
+        data: {
+          function: `${CONTRACT_ADDRESS}::dao_governance::create_dao`,
+          functionArguments: [
+            CONTRACT_ADDRESS,
+            Array.from(new TextEncoder().encode(daoId)),
+            Array.from(new TextEncoder().encode(name.trim())),
+            account.address.toString(),
+            0,
+            0,
+          ],
+        } as InputEntryFunctionData,
+      })
+      await aptos.waitForTransaction({ transactionHash: tx.hash })
+
       const result = await createMutation.mutateAsync({
+        id: daoId,
         name: name.trim(),
-        slug: slug.trim() || undefined,
+        slug: daoSlug || undefined,
         description: description.trim() || undefined,
         ownerAddress: account.address.toString(),
         treasuryAddress: account.address.toString(),

@@ -1,7 +1,11 @@
+import {
+  encodeParameterChangePayload,
+  normalizeParameterChangePayload,
+} from "@quorum/aptos/helpers"
 import { daoMemberships, daos, delegations, proposals, proposalVotes } from "@quorum/db"
 import { and, count, desc, eq } from "drizzle-orm"
 import { z } from "zod"
-import { publicProcedure } from "../index"
+import { assertSessionWallet, protectedProcedure, publicProcedure } from "../index"
 
 // ── Shared validators ────────────────────────────────────────────────────────
 const aptosAddress = z.string().regex(/^0x[0-9a-fA-F]{1,64}$/, "Invalid Aptos address format")
@@ -12,9 +16,10 @@ const uuidV4 = z.string().uuid()
 
 export const proposalRouter = {
   /** Create a governance proposal */
-  create: publicProcedure
+  create: protectedProcedure
     .input(
       z.object({
+        id: uuidV4.optional(),
         daoId: z.string(),
         proposerAddress: aptosAddress,
         proposalType: z.number().int().min(0).max(2).default(2),
@@ -28,6 +33,18 @@ export const proposalRouter = {
       }),
     )
     .handler(async ({ input, context: ctx }) => {
+      assertSessionWallet(ctx, input.proposerAddress)
+
+      if (input.id) {
+        const [existingById] = await ctx.db
+          .select({ id: proposals.id })
+          .from(proposals)
+          .where(eq(proposals.id, input.id))
+          .limit(1)
+
+        if (existingById) return { id: existingById.id }
+      }
+
       // Verify DAO + proposer is member
       const [dao] = await ctx.db.select().from(daos).where(eq(daos.id, input.daoId)).limit(1)
       if (!dao) throw new Error("DAO not found")
@@ -44,7 +61,13 @@ export const proposalRouter = {
         .limit(1)
       if (!membership) throw new Error("Only DAO members can create proposals")
 
-      const id = crypto.randomUUID()
+      const normalizedPayload =
+        input.proposalType === 0 ? normalizeParameterChangePayload(input.payload) : input.payload
+      if (input.proposalType === 0) {
+        encodeParameterChangePayload(normalizedPayload)
+      }
+
+      const id = input.id ?? crypto.randomUUID()
       const now = new Date()
       const deadlineMs = input.votingDeadlineMs ?? Date.now() + dao.votingWindowSeconds * 1000
 
@@ -55,7 +78,7 @@ export const proposalRouter = {
         proposalType: input.proposalType,
         title: input.title,
         description: input.description,
-        payload: JSON.stringify(input.payload),
+        payload: JSON.stringify(normalizedPayload),
         status: "active",
         aptosTxHash: input.aptosTxHash,
         votingDeadline: new Date(deadlineMs),
@@ -105,7 +128,7 @@ export const proposalRouter = {
     }),
 
   /** Cast a vote on a proposal */
-  vote: publicProcedure
+  vote: protectedProcedure
     .input(
       z.object({
         proposalId: uuidV4,
@@ -115,6 +138,8 @@ export const proposalRouter = {
       }),
     )
     .handler(async ({ input, context: ctx }) => {
+      assertSessionWallet(ctx, input.voterAddress)
+
       // Verify proposal exists and is active
       const [proposal] = await ctx.db
         .select()
@@ -140,7 +165,7 @@ export const proposalRouter = {
 
       // Check if already voted
       const [existing] = await ctx.db
-        .select({ id: proposalVotes.id })
+        .select({ id: proposalVotes.id, votingPower: proposalVotes.votingPower })
         .from(proposalVotes)
         .where(
           and(
@@ -149,7 +174,9 @@ export const proposalRouter = {
           ),
         )
         .limit(1)
-      if (existing) throw new Error("Already voted on this proposal")
+      if (existing) {
+        return { id: existing.id, votingPower: existing.votingPower }
+      }
 
       // Get effective VP (base + delegated)
       const [delegation] = await ctx.db

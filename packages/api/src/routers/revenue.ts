@@ -1,7 +1,7 @@
-import { contributions, datasets, members, receipts } from "@quorum/db"
-import { and, eq, sql } from "drizzle-orm"
+import { contributions, daoMemberships, datasets, receipts } from "@quorum/db"
+import { and, count, eq, sql } from "drizzle-orm"
 import { z } from "zod"
-import { publicProcedure } from "../index"
+import { assertSessionWallet, protectedProcedure, publicProcedure } from "../index"
 
 // ── Shared validators ────────────────────────────────────────────────────────
 
@@ -19,7 +19,7 @@ const shelbyHash = z
 // ── Router ───────────────────────────────────────────────────────────────────
 
 export const revenueRouter = {
-  anchorReceipt: publicProcedure
+  anchorReceipt: protectedProcedure
     .input(
       z.object({
         datasetId: uuidV4,
@@ -30,6 +30,8 @@ export const revenueRouter = {
       }),
     )
     .handler(async ({ input, context: ctx }) => {
+      assertSessionWallet(ctx, input.readerAddress)
+
       // Verify dataset exists
       const [dataset] = await ctx.db
         .select({ id: datasets.id })
@@ -62,16 +64,9 @@ export const revenueRouter = {
   getEarnings: publicProcedure
     .input(z.object({ contributorAddress: aptosAddress }))
     .handler(async ({ input, context: ctx }) => {
-      const rows = await ctx.db
-        .select()
-        .from(members)
-        .where(eq(members.address, input.contributorAddress))
-        .limit(1)
-      const member = rows[0]
-      if (!member) return { approvedContributions: 0, totalWeight: 0 }
-
-      const weightRows = await ctx.db
+      const [stats] = await ctx.db
         .select({
+          approvedContributions: count(),
           totalWeight: sql<number>`sum(${contributions.weight})`.mapWith(Number),
         })
         .from(contributions)
@@ -83,8 +78,8 @@ export const revenueRouter = {
         )
 
       return {
-        approvedContributions: member.approvedContributions,
-        totalWeight: weightRows[0]?.totalWeight ?? 0,
+        approvedContributions: stats?.approvedContributions ?? 0,
+        totalWeight: stats?.totalWeight ?? 0,
       }
     }),
 
@@ -105,7 +100,7 @@ export const revenueRouter = {
       return query.limit(input?.limit ?? 50)
     }),
 
-  distribute: publicProcedure
+  distribute: protectedProcedure
     .input(z.object({ receiptId: uuidV4 }))
     .handler(async ({ input, context: ctx }) => {
       const [receipt] = await ctx.db
@@ -138,8 +133,14 @@ export const revenueRouter = {
         )
         .groupBy(contributions.contributorAddress)
 
-      // Gather curators (all DAO members)
-      const curatorRows = await ctx.db.select().from(members)
+      // Gather curators from the dataset's DAO
+      const curatorRows = await ctx.db
+        .select({
+          address: daoMemberships.memberAddress,
+          votingPower: daoMemberships.votingPower,
+        })
+        .from(daoMemberships)
+        .where(eq(daoMemberships.daoId, daoId))
 
       const contributorAddresses = contributorRows.map((r) => r.address)
       const contributorWeights = contributorRows.map((r) => BigInt(Math.round(r.weight * 100)))

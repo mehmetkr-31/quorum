@@ -1,7 +1,7 @@
-import { votes } from "@quorum/db"
-import { desc } from "drizzle-orm"
+import { contributions, daoMemberships, datasets, votes } from "@quorum/db"
+import { and, desc, eq } from "drizzle-orm"
 import { z } from "zod"
-import { publicProcedure } from "../index"
+import { assertSessionWallet, protectedProcedure, publicProcedure } from "../index"
 
 // ── Shared validators ────────────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ export const voteRouter = {
         .limit(input?.limit ?? 50)
     }),
 
-  cast: publicProcedure
+  cast: protectedProcedure
     .input(
       z.object({
         contributionId: uuidV4,
@@ -49,8 +49,47 @@ export const voteRouter = {
       }),
     )
     .handler(async ({ input, context: ctx }) => {
+      assertSessionWallet(ctx, input.voterAddress)
+
+      const [contribution] = await ctx.db
+        .select({ daoId: datasets.daoId })
+        .from(contributions)
+        .innerJoin(datasets, eq(contributions.datasetId, datasets.id))
+        .where(eq(contributions.id, input.contributionId))
+        .limit(1)
+
+      if (!contribution) throw new Error("Contribution not found")
+
+      const [membership] = await ctx.db
+        .select({ votingPower: daoMemberships.votingPower })
+        .from(daoMemberships)
+        .where(
+          and(
+            eq(daoMemberships.daoId, contribution.daoId),
+            eq(daoMemberships.memberAddress, input.voterAddress),
+          ),
+        )
+        .limit(1)
+
+      if (!membership) throw new Error("Only DAO members can vote")
+
+      const [existing] = await ctx.db
+        .select({ id: votes.id, votingPower: votes.votingPower })
+        .from(votes)
+        .where(
+          and(
+            eq(votes.contributionId, input.contributionId),
+            eq(votes.voterAddress, input.voterAddress),
+          ),
+        )
+        .limit(1)
+
+      if (existing) {
+        return { id: existing.id, votingPower: existing.votingPower }
+      }
+
       const id = crypto.randomUUID()
-      const votingPower = await ctx.aptosClient.getMemberVotingPower(input.voterAddress)
+      const votingPower = membership.votingPower
 
       await ctx.db.insert(votes).values({
         id,

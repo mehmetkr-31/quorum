@@ -1,5 +1,5 @@
 import { call } from "@orpc/server"
-import { contributions, datasets, members } from "@quorum/db"
+import { contributions, datasets } from "@quorum/db"
 import { beforeEach, describe, expect, it } from "vitest"
 import { revenueRouter } from "../routers/revenue"
 import { createMockContext, createTestDb, setupTestSchema } from "./helpers"
@@ -39,6 +39,7 @@ describe("revenueRouter", () => {
   })
 
   it("anchorReceipt: receipt kaydeder ve id döner", async () => {
+    ctx.session!.walletAddress = READER1
     const result = await call(
       revenueRouter.anchorReceipt,
       {
@@ -54,6 +55,7 @@ describe("revenueRouter", () => {
   })
 
   it("anchorReceipt: idempotent — aynı hash ikinci kez eklenmez", async () => {
+    ctx.session!.walletAddress = READER1
     const r1 = await call(
       revenueRouter.anchorReceipt,
       {
@@ -65,6 +67,7 @@ describe("revenueRouter", () => {
       },
       { context: ctx },
     )
+    ctx.session!.walletAddress = READER2
     const r2 = await call(
       revenueRouter.anchorReceipt,
       {
@@ -80,6 +83,7 @@ describe("revenueRouter", () => {
   })
 
   it("listReceipts: tüm receipts'leri döner", async () => {
+    ctx.session!.walletAddress = READER1
     await call(
       revenueRouter.anchorReceipt,
       {
@@ -91,6 +95,7 @@ describe("revenueRouter", () => {
       },
       { context: ctx },
     )
+    ctx.session!.walletAddress = READER2
     await call(
       revenueRouter.anchorReceipt,
       {
@@ -109,6 +114,7 @@ describe("revenueRouter", () => {
 
   it("listReceipts: distributed=false filtresi dağıtılmamışları döner", async () => {
     const { receipts } = await import("@quorum/db")
+    ctx.session!.walletAddress = READER1
     await call(
       revenueRouter.anchorReceipt,
       {
@@ -120,6 +126,7 @@ describe("revenueRouter", () => {
       },
       { context: ctx },
     )
+    ctx.session!.walletAddress = READER2
     await call(
       revenueRouter.anchorReceipt,
       {
@@ -164,12 +171,6 @@ describe("revenueRouter", () => {
   })
 
   it("getEarnings: approved contribution weight'ini toplar", async () => {
-    await db.insert(members).values({
-      address: CONTRIBUTOR,
-      votingPower: 5,
-      approvedContributions: 2,
-      joinedAt: new Date(),
-    })
     await db.insert(contributions).values([
       {
         id: "c1",

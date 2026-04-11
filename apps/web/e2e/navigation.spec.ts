@@ -47,8 +47,7 @@ test.describe("Navigation", () => {
     await page.goto("/vote")
     await waitForPageReady(page)
 
-    // Vote page has a sidebar with NEURAL_DAO branding
-    await expect(page.getByText(/REVIEW/i)).toBeVisible()
+    await expect(page.getByRole("heading", { name: /NEURAL REVIEW/i })).toBeVisible()
   })
 
   test("navigates to /governance page", async ({ page }) => {
@@ -71,7 +70,7 @@ test.describe("Navigation", () => {
     const status = response?.status() ?? 200
     const url = page.url()
     const is404 = status === 404
-    const isRedirect = url.includes("localhost:3001/") && !url.includes("xyz")
+    const isRedirect = url.includes("127.0.0.1:3001/") && !url.includes("xyz")
     expect(is404 || isRedirect).toBe(true)
   })
 })

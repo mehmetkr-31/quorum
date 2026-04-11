@@ -1,7 +1,7 @@
-import { contributions, daoMemberships, daos, datasets, members } from "@quorum/db"
+import { contributions, daoMemberships, daos, datasets } from "@quorum/db"
 import { and, count, desc, eq } from "drizzle-orm"
 import { z } from "zod"
-import { publicProcedure } from "../index"
+import { assertSessionWallet, protectedProcedure, publicProcedure } from "../index"
 
 // ── Shared validators ────────────────────────────────────────────────────────
 
@@ -23,9 +23,10 @@ function slugify(text: string): string {
 
 export const daoRouter = {
   /** Create a new DAO — anyone can launch a community dataset DAO */
-  create: publicProcedure
+  create: protectedProcedure
     .input(
       z.object({
+        id: z.string().uuid().optional(),
         name: z.string().min(2).max(100).trim(),
         description: z.string().max(2000).optional(),
         slug: daoSlug.optional(),
@@ -37,8 +38,15 @@ export const daoRouter = {
       }),
     )
     .handler(async ({ input, context: ctx }) => {
-      const id = crypto.randomUUID()
+      assertSessionWallet(ctx, input.ownerAddress)
+
+      const id = input.id ?? crypto.randomUUID()
       const slug = input.slug || slugify(input.name)
+
+      const [existingById] = await ctx.db.select().from(daos).where(eq(daos.id, id)).limit(1)
+      if (existingById) {
+        return { id: existingById.id, slug: existingById.slug }
+      }
 
       // Check slug uniqueness
       const existing = await ctx.db
@@ -59,6 +67,7 @@ export const daoRouter = {
         ownerAddress: input.ownerAddress,
         treasuryAddress: input.treasuryAddress,
         imageUrl: input.imageUrl,
+        onChainId: id,
         votingWindowSeconds: input.votingWindowSeconds,
         quorumThreshold: input.quorumThreshold,
         createdAt: new Date(),
@@ -148,7 +157,7 @@ export const daoRouter = {
     }),
 
   /** Join a DAO as a member */
-  join: publicProcedure
+  join: protectedProcedure
     .input(
       z.object({
         daoId: z.string(),
@@ -156,6 +165,8 @@ export const daoRouter = {
       }),
     )
     .handler(async ({ input, context: ctx }) => {
+      assertSessionWallet(ctx, input.memberAddress)
+
       // Check if already a member
       const existing = await ctx.db
         .select({ id: daoMemberships.id })
@@ -179,15 +190,6 @@ export const daoRouter = {
         memberAddress: input.memberAddress,
         joinedAt: new Date(),
       })
-
-      // Also ensure global members table has an entry (backward compat)
-      await ctx.db
-        .insert(members)
-        .values({
-          address: input.memberAddress,
-          joinedAt: new Date(),
-        })
-        .onConflictDoNothing()
 
       return { id, alreadyMember: false }
     }),

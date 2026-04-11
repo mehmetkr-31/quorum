@@ -1,7 +1,7 @@
 import { contributions, datasets } from "@quorum/db"
 import { and, eq } from "drizzle-orm"
 import { z } from "zod"
-import { publicProcedure } from "../index"
+import { assertSessionWallet, protectedProcedure, publicProcedure } from "../index"
 
 // ── Shared validators ────────────────────────────────────────────────────────
 
@@ -31,7 +31,7 @@ const base64Data = z
 // ── Router ───────────────────────────────────────────────────────────────────
 
 export const contributionRouter = {
-  submit: publicProcedure
+  submit: protectedProcedure
     .input(
       z.object({
         datasetId: uuidV4,
@@ -46,6 +46,8 @@ export const contributionRouter = {
       }),
     )
     .handler(async ({ input, context: ctx }) => {
+      assertSessionWallet(ctx, input.contributorAddress)
+
       // Verify dataset exists before upload
       const [dataset] = await ctx.db
         .select({ id: datasets.id })
@@ -77,7 +79,7 @@ export const contributionRouter = {
       return { id, shelbyAccount, shelbyBlobName: blobName, dataHash }
     }),
 
-  confirmOnChain: publicProcedure
+  confirmOnChain: protectedProcedure
     .input(
       z.object({
         id: uuidV4,
@@ -85,6 +87,15 @@ export const contributionRouter = {
       }),
     )
     .handler(async ({ input, context: ctx }) => {
+      const [contribution] = await ctx.db
+        .select({ contributorAddress: contributions.contributorAddress })
+        .from(contributions)
+        .where(eq(contributions.id, input.id))
+        .limit(1)
+
+      if (!contribution) throw new Error("Contribution not found")
+      assertSessionWallet(ctx, contribution.contributorAddress)
+
       await ctx.db
         .update(contributions)
         .set({ aptosTxHash: input.aptosTxHash })
