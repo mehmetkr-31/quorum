@@ -46,10 +46,14 @@ test.describe("Vote page — unauthenticated", () => {
   })
 
   test("empty queue shows no-pending message when no contributions", async ({ page }) => {
+    // Wait for loading skeleton to disappear (API query resolved)
+    const skeleton = page.locator(".animate-pulse")
+    await expect(skeleton).toBeHidden({ timeout: 15_000 })
+
+    // Now check for either empty state OR contribution cards
     const emptyMsg = page.getByText(/No contributions pending review/i)
     const card = page.getByText(/CNTRB_/i).first()
 
-    // Wait until loading finishes and either the empty message or a contribution card is visible
     await expect(emptyMsg.or(card)).toBeVisible({ timeout: 6_000 })
 
     if (await emptyMsg.isVisible()) {

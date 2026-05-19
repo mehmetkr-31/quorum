@@ -451,7 +451,7 @@ function VotePage() {
             )}
 
             {/* Empty state */}
-            {!isLoading && filteredPending?.length === 0 && (
+            {!isLoading && (!filteredPending || filteredPending.length === 0) && (
               <div className="glass-card rounded-xl p-16 text-center text-on-surface-variant border border-outline-variant/20">
                 No contributions pending review.
               </div>

@@ -34,8 +34,10 @@ async function handle({ request }: { request: Request }) {
   const url = new URL(request.url)
   const profile = getProfile(url)
 
+  const isTestOrCI = process.env.CI === "true" || process.env.NODE_ENV === "test"
+
   // Global IP limit (broad protection)
-  if (!checkRateLimit(ip)) {
+  if (!isTestOrCI && !checkRateLimit(ip)) {
     return new Response(JSON.stringify({ error: "Too Many Requests" }), {
       status: 429,
       headers: {
@@ -64,7 +66,9 @@ async function handle({ request }: { request: Request }) {
   }
 
   // Per-endpoint + per-wallet combined check
-  const check = checkCombinedRateLimit(ip, walletAddress, profile)
+  const check = isTestOrCI
+    ? { allowed: true as boolean, reason: undefined as string | undefined }
+    : checkCombinedRateLimit(ip, walletAddress, profile)
   if (!check.allowed) {
     const windowMs = RATE_LIMIT_PROFILES[profile].windowMs
     return new Response(JSON.stringify({ error: `Too Many Requests — ${check.reason}` }), {

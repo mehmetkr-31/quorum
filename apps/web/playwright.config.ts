@@ -11,7 +11,7 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
 
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:3001",
+    baseURL: process.env.E2E_BASE_URL || "http://127.0.0.1:3001",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },

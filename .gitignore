@@ -40,3 +40,39 @@ pnpm-debug.log*
 # aptos
 .aptos/
 .tmp.claude/
+
+# ── TypeScript build outputs leaked into source dirs ──
+packages/*/src/*.d.ts
+packages/*/src/*.js
+packages/*/src/*.js.map
+packages/*/src/*.d.ts.map
+packages/*/drizzle.config.d.ts
+packages/*/drizzle.config.js
+packages/*/drizzle.config.js.map
+packages/*/drizzle.config.d.ts.map
+
+# TypeScript incremental build info
+tsconfig.tsbuildinfo
+**/tsconfig.tsbuildinfo
+
+# Shelby Protocol local store
+.shelby_store/
+
+# Scratch / temp scripts
+scratch/
+
+# Vinxi / TanStack Start temp artifacts
+app.config.timestamp_*.js
+app.config.ts.bak
+
+# Dev / debug logs
+dev.log
+indexer.log
+
+# Test temp scripts
+test-page.js
+test-pw.js
+
+# Playwright test results
+test-results/
+playwright-report/

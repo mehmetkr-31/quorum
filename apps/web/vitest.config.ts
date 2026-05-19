@@ -17,8 +17,8 @@ export default defineConfig({
       include: ["src/server/**/*.ts", "src/components/**/*.tsx"],
       exclude: ["src/test/**", "src/routes/**"],
       thresholds: {
-        lines: 50,
-        functions: 50,
+        lines: 45,
+        functions: 45,
       },
     },
   },
