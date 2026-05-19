@@ -47,15 +47,15 @@ test.describe("Vote page — unauthenticated", () => {
 
   test("empty queue shows no-pending message when no contributions", async ({ page }) => {
     const emptyMsg = page.getByText(/No contributions pending review/i)
-    const actionButtons = page.getByRole("button").filter({ hasText: /APPROVE|REJECT|IMPROVE/i })
-    const actionCount = await actionButtons.count()
-    const contributionCards = page.getByText(/CNTRB_/i)
-    const finalizeButtons = page.getByRole("button", { name: /FINALIZE_RECORDS/i })
-    const cardCount = await contributionCards.count()
-    const finalizeCount = await finalizeButtons.count()
+    const card = page.getByText(/CNTRB_/i).first()
 
-    if (actionCount === 0 && cardCount === 0 && finalizeCount === 0) {
+    // Wait until loading finishes and either the empty message or a contribution card is visible
+    await expect(emptyMsg.or(card)).toBeVisible({ timeout: 6_000 })
+
+    if (await emptyMsg.isVisible()) {
       await expect(emptyMsg).toBeVisible()
+      const actionButtons = page.getByRole("button").filter({ hasText: /APPROVE|REJECT|IMPROVE/i })
+      await expect(actionButtons).toHaveCount(0)
     }
   })
 

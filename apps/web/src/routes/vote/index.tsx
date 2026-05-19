@@ -212,6 +212,20 @@ function VotePage() {
 
       setVotedIds((prev) => new Set(prev).add(contributionId))
       toast.success(`Oy verildi: ${decision}`)
+
+      queryClient.invalidateQueries({
+        queryKey: orpc.contribution.list.queryOptions({ input: { status: "pending" } }).queryKey,
+      })
+      queryClient.invalidateQueries({
+        queryKey: orpc.vote.listHistory.queryOptions().queryKey,
+      })
+      if (selectedDaoId) {
+        queryClient.invalidateQueries({
+          queryKey: orpc.dao.getMembership.queryOptions({
+            input: { daoId: selectedDaoId, memberAddress: account.address.toString() },
+          }).queryKey,
+        })
+      }
       refetch()
     } catch (e: unknown) {
       console.error("Vote Error:", e)

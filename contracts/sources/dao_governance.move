@@ -501,7 +501,7 @@ module quorum::dao_governance {
         contract_addr: address,
         contribution_id: vector<u8>,
         decision: u8,
-    ) acquires ContributionStore, VoteStore, DAOMemberStore, Member {
+    ) acquires ContributionStore, VoteStore, DAOMemberStore {
         assert!(decision <= 2, E_INVALID_DECISION);
         let addr = signer::address_of(voter);
         assert!(exists<Member>(addr), E_NOT_MEMBER);
@@ -685,7 +685,7 @@ module quorum::dao_governance {
         contract_addr: address,
         proposal_id: vector<u8>,
         support: bool,
-    ) acquires ProposalStore, DAOMemberStore, DelegationStore, Member {
+    ) acquires ProposalStore, DAOMemberStore, DelegationStore {
         let addr = signer::address_of(voter);
         assert!(exists<Member>(addr), E_NOT_MEMBER);
 
@@ -977,7 +977,7 @@ module quorum::dao_governance {
         let i = 0u64;
         while (i < 8) {
             let byte = (*vector::borrow(data, offset + i) as u64);
-            result = result | (byte << (i * 8));
+            result = result | (byte << ((i * 8) as u8));
             i = i + 1;
         };
         result

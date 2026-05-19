@@ -45,7 +45,7 @@ module quorum::staking {
 
     // ── Structs ──────────────────────────────────────────────────────────────
 
-    struct StakeRecord has store {
+    struct StakeRecord has store, drop {
         staker: address,
         amount: u64,
         /// Lockup tier: 0=30d, 1=90d, 2=180d

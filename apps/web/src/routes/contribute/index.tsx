@@ -198,6 +198,16 @@ function ContributePage() {
 
       setStatus("done")
       toast.success("Contribution submitted successfully!")
+      queryClient.invalidateQueries({
+        queryKey: orpc.contribution.list.queryOptions({ input: { status: "pending" } }).queryKey,
+      })
+      if (account?.address) {
+        queryClient.invalidateQueries({
+          queryKey: orpc.contribution.listMine.queryOptions({
+            input: { walletAddress: account.address.toString() },
+          }).queryKey,
+        })
+      }
     } catch (e: unknown) {
       console.error(e)
       setStatus("error")

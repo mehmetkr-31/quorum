@@ -1,6 +1,6 @@
 import crypto from "node:crypto"
 import { Ed25519PublicKey, Ed25519Signature } from "@aptos-labs/ts-sdk"
-import { authAccount, authSession, authUser, authVerification, createDb } from "@quorum/db"
+import { authAccount, authSession, authUser, authVerification, createDb, members } from "@quorum/db"
 import { env } from "@quorum/env/server"
 import { APIError, type BetterAuthPlugin, betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
@@ -32,7 +32,7 @@ function createAuthInstance() {
       "http://localhost:3005",
       "http://localhost:3000",
     ],
-    plugins: [aptosWalletPlugin()],
+    plugins: [aptosWalletPlugin(db)],
   })
 }
 
@@ -49,7 +49,7 @@ export const auth = new Proxy({} as ReturnType<typeof createAuthInstance>, {
   },
 })
 
-function aptosWalletPlugin(): BetterAuthPlugin {
+function aptosWalletPlugin(db: ReturnType<typeof createDb>): BetterAuthPlugin {
   function stripHexVariantPrefix(value: string, expectedByteLength: number) {
     const normalized = value.startsWith("0x") ? value.slice(2) : value
     if (normalized.length === (expectedByteLength + 1) * 2 && normalized.startsWith("00")) {
@@ -207,6 +207,18 @@ function aptosWalletPlugin(): BetterAuthPlugin {
               updatedAt: new Date(),
             })
           }
+
+          // SYNC TO MEMBERS TABLE (for backward compatibility and indexer sync)
+          await db
+            .insert(members)
+            .values({
+              address: address,
+              votingPower: 1,
+              approvedContributions: 0,
+              totalContributions: 0,
+              joinedAt: new Date(),
+            })
+            .onConflictDoNothing()
 
           const session = await ctx.context.internalAdapter.createSession(user.id)
           if (!session) {

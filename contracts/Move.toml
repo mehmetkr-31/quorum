@@ -3,10 +3,10 @@ name = "quorum"
 version = "0.0.1"
 
 [addresses]
-quorum = "0x25b6fd2cd3e4d22c78e680cc125b0ef7bbf298e75c708e9908dc27ade6f4d693"
+quorum = "0x6e039fce5be1a646bf6ec7b86821a0f2137f60dabb36e1b6dc0e16d1f931f48d"
 
 [dev-addresses]
-quorum = "0x25b6fd2cd3e4d22c78e680cc125b0ef7bbf298e75c708e9908dc27ade6f4d693"
+quorum = "0x6e039fce5be1a646bf6ec7b86821a0f2137f60dabb36e1b6dc0e16d1f931f48d"
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"

@@ -29,6 +29,7 @@
     "**/*.{ts,tsx,js,jsx,json,css,astro}": "biome check --write --no-errors-on-unmatched"
   },
   "devDependencies": {
+    "@aptos-labs/ts-sdk": "^6.3.1",
     "@biomejs/biome": "^2.2.0",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "^4.1.2",

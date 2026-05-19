@@ -83,6 +83,14 @@ test.describe("DAO Detail (/daos/:slug)", () => {
     await page.goto("/daos/genesis")
     await waitForPageReady(page)
 
+    // Wait for loading spinner to hide and page to render
+    await expect(
+      page
+        .locator("h1")
+        .or(page.getByText(/DAO not found/i))
+        .first(),
+    ).toBeVisible({ timeout: 10_000 })
+
     // If DAO not found, it shows an error message — that's OK for CI without seed
     const notFound = page.getByText(/DAO not found/i)
     const isNotFound = await notFound.isVisible().catch(() => false)
@@ -98,6 +106,14 @@ test.describe("DAO Detail (/daos/:slug)", () => {
   test("switching to governance tab shows quorum threshold", async ({ page }) => {
     await page.goto("/daos/genesis")
     await waitForPageReady(page)
+
+    // Wait for loading spinner to hide and page to render
+    await expect(
+      page
+        .locator("h1")
+        .or(page.getByText(/DAO not found/i))
+        .first(),
+    ).toBeVisible({ timeout: 10_000 })
 
     const notFound = page.getByText(/DAO not found/i)
     const isNotFound = await notFound.isVisible().catch(() => false)
@@ -118,6 +134,14 @@ test.describe("DAO Detail (/daos/:slug)", () => {
   test("switching to members tab shows member list or empty state", async ({ page }) => {
     await page.goto("/daos/genesis")
     await waitForPageReady(page)
+
+    // Wait for loading spinner to hide and page to render
+    await expect(
+      page
+        .locator("h1")
+        .or(page.getByText(/DAO not found/i))
+        .first(),
+    ).toBeVisible({ timeout: 10_000 })
 
     const notFound = page.getByText(/DAO not found/i)
     const isNotFound = await notFound.isVisible().catch(() => false)
