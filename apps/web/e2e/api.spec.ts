@@ -18,6 +18,27 @@ test.describe("API — dao endpoints", () => {
     })
   }
 
+  // Wait for API to be ready — in CI the vite dev server may take a few seconds
+  test.beforeAll(async ({ request }) => {
+    let ready = false
+    for (let i = 0; i < 10; i++) {
+      try {
+        const res = await request.post("/api/rpc/dao/list", {
+          data: { input: {} },
+          headers: { "Content-Type": "application/json" },
+        })
+        if (res.status() === 200) {
+          ready = true
+          break
+        }
+      } catch {
+        // Server not up yet
+      }
+      await new Promise((r) => setTimeout(r, 2000))
+    }
+    expect(ready, "API should be ready within 20 seconds").toBe(true)
+  })
+
   test("dao.list returns array", async ({ request }) => {
     const res = await rpc(request, "dao/list", {})
     expect(res.status()).toBe(200)
@@ -149,8 +170,12 @@ test.describe("API — rate limiting", () => {
         }),
       ),
     )
-    for (const res of results) {
-      expect([200, 429]).toContain(res.status())
+    const statuses = results.map((r) => r.status())
+    for (const status of statuses) {
+      // 200 = success, 429 = rate limited — both are correct
+      // 500 = server crash — this is the failure we're guarding against
+      expect(status).not.toBe(500)
+      expect([200, 429]).toContain(status)
     }
   })
 })

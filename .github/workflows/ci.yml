@@ -127,8 +127,9 @@ jobs:
       - name: Setup test database
         run: |
           cp apps/web/.env.example apps/web/.env
-          # Override with CI values
-          echo "DATABASE_URL=file:./local.db" >> apps/web/.env
+          # Override with CI values — use absolute path so all tools share one DB
+          DB_PATH="${{ github.workspace }}/apps/web/local.db"
+          echo "DATABASE_URL=file:${DB_PATH}" >> apps/web/.env
           echo "BETTER_AUTH_SECRET=test-secret-for-ci-only" >> apps/web/.env
           echo "BETTER_AUTH_URL=http://localhost:3001" >> apps/web/.env
           echo "QUORUM_CONTRACT_ADDRESS=0x0000000000000000000000000000000000000000000000000000000000000001" >> apps/web/.env
@@ -137,9 +138,12 @@ jobs:
           echo "SHELBY_NETWORK=SHELBYNET" >> apps/web/.env
           echo "VITE_CONTRACT_ADDRESS=0x0000000000000000000000000000000000000000000000000000000000000001" >> apps/web/.env
           echo "VITE_APTOS_NODE_URL=https://fullnode.testnet.aptoslabs.com/v1" >> apps/web/.env
-          # Initialize DB
-          pnpm --filter @quorum/db db:push --force || true
-          pnpm seed || true
+          # Initialize DB with the same absolute path
+          DATABASE_URL="file:${DB_PATH}" pnpm --filter @quorum/db db:push --force
+          DATABASE_URL="file:${DB_PATH}" pnpm seed
+        env:
+          BETTER_AUTH_SECRET: "test-secret-for-ci-only"
+          BETTER_AUTH_URL: "http://localhost:3001"
 
       - name: Install Playwright Chromium
         run: pnpm --filter @quorum/web exec playwright install chromium --with-deps
@@ -147,12 +151,13 @@ jobs:
       - name: Build app for E2E
         run: pnpm --filter @quorum/web build
         env:
-          DATABASE_URL: "file:./local.db"
+          DATABASE_URL: "file:${{ github.workspace }}/apps/web/local.db"
 
       - name: Run E2E tests
         run: pnpm --filter @quorum/web test:e2e
         env:
           CI: "true"
+          DATABASE_URL: "file:${{ github.workspace }}/apps/web/local.db"
 
       - name: Upload E2E test results
         uses: actions/upload-artifact@v4

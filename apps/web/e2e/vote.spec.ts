@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test"
-import { waitForPageReady } from "./helpers"
+import { expectToast, waitForPageReady } from "./helpers"
 
 /**
  * Vote page E2E tests.
@@ -42,7 +42,7 @@ test.describe("Vote page — unauthenticated", () => {
   test("SUBMIT_PROPOSAL button shows coming-soon toast", async ({ page }) => {
     const btn = page.getByRole("button", { name: /SUBMIT_PROPOSAL/i })
     await btn.click()
-    await expect(page.getByText(/Proposal submission coming soon/i)).toBeVisible({ timeout: 4_000 })
+    await expectToast(page, /Proposal submission coming soon/i)
   })
 
   test("empty queue shows no-pending message when no contributions", async ({ page }) => {
